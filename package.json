@@ -1,0 +1,49 @@
+{
+  "name": "dsh-oi-workbench",
+  "version": "0.1.1-beta.0",
+  "description": "OI 出题工作台：知识点锁定、数据构造、本地评测，打包 Hydro/HOJ 原生题目包，发布/管理 Hydro 与 HOJ OJ，提供 Python 外部管理 UI 与系统斜杠命令。Opt-in skill-first plugin for DeepSeek Harness.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "skills",
+    "README.md",
+    "LICENSE",
+    "NOTICE.md"
+  ],
+  "dependencies": {
+    "@etby-studio/dsh-commands": "^0.1.0"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "agent-skill",
+    "oi",
+    "competitive-programming",
+    "problem-setting",
+    "hydro",
+    "hoj",
+    "local-judge"
+  ],
+  "engines": {
+    "node": "^18.0.0 || >=20.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/muyangplus/dsh-oi-workbench.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

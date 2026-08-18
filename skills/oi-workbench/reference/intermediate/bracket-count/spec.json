@@ -1,0 +1,72 @@
+{
+  "title": "括号序列计数",
+  "pid": "P07",
+  "type": "oi",
+  "judgeCaseMode": "default",
+  "languages": [
+    "C++"
+  ],
+  "tags": [
+    "动态规划",
+    "组合计数"
+  ],
+  "time": "1000ms",
+  "memory": "512m",
+  "stackLimit": 512,
+  "difficulty": 6,
+  "compile": {
+    "cpp": "-O2 -std=c++14 -static"
+  },
+  "cases": [
+    {
+      "input": "1.in",
+      "output": "1.out",
+      "score": 10
+    },
+    {
+      "input": "2.in",
+      "output": "2.out",
+      "score": 10
+    },
+    {
+      "input": "3.in",
+      "output": "3.out",
+      "score": 10
+    },
+    {
+      "input": "4.in",
+      "output": "4.out",
+      "score": 10
+    },
+    {
+      "input": "5.in",
+      "output": "5.out",
+      "score": 10
+    },
+    {
+      "input": "6.in",
+      "output": "6.out",
+      "score": 10
+    },
+    {
+      "input": "7.in",
+      "output": "7.out",
+      "score": 10
+    },
+    {
+      "input": "8.in",
+      "output": "8.out",
+      "score": 10
+    },
+    {
+      "input": "9.in",
+      "output": "9.out",
+      "score": 10
+    },
+    {
+      "input": "10.in",
+      "output": "10.out",
+      "score": 10
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+# Opt-in OI Workbench filesystem Skill provider for DeepSeek Harness.
+# Resolves the packaged Skill root from the installed npm identity anchored at
+# the DSH profile (Loader baseUrl), never as a path concatenated onto baseUrl.
+- insert:
+    - id: oi-workbench-skill-filesystem
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        providerName: oi-workbench-plugin
+        includeDefaultRoots: false
+        bundledSkillDir: !!js process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('dsh-oi-workbench/package.json')), 'skills')
+- insert:
+    - id: dsh-commands
+      name: '@etby-studio/dsh-commands'
+      config:
+        commandDirs:
+          - !!js process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('dsh-oi-workbench/package.json')), 'skills', 'oi-workbench', 'commands', 'register')
