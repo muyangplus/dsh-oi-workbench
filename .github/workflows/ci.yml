@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install g++
+        run: sudo apt-get update && sudo apt-get install -y g++
+
+      - name: Python syntax check
+        run: python -m compileall skills
+
+      - name: Validate all reference packages (Hydro/HOJ check)
+        run: python skills/oi-workbench/generator/build_all_reference.py
+
+      - name: Build and verify all reference packages
+        run: python skills/oi-workbench/generator/build_all_reference.py --build --out "$RUNNER_TEMP/reference-zips"
+
+      - name: Local judge smoke test (demo)
+        run: python skills/oi-workbench/generator/local_judge.py skills/oi-workbench/examples/demo --source std/std.cpp --time 1000
+
+      - name: HOJ bridge CLI smoke test
+        run: |
+          python skills/oi-workbench/hoj-bridge/manage_hoj.py --help >/dev/null
+          python skills/oi-workbench/hoj-bridge/publish_problem.py --help >/dev/null

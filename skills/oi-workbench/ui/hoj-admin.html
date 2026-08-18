@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HOJ 管理台（本地单页）</title>
+<style>
+  :root { color-scheme: light dark; --bg:#0f172a; --card:#1e293b; --line:#334155; --text:#e2e8f0; --muted:#94a3b8; --primary:#3b82f6; --ok:#22c55e; --err:#ef4444; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:16px 24px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; }
+  .container { max-width:1100px; margin:24px auto; padding:0 16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:16px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  label { color:var(--muted); font-size:13px; }
+  input, select, button { background:#0b1220; border:1px solid var(--line); color:var(--text); border-radius:8px; padding:8px 10px; font-size:14px; }
+  input { min-width:220px; }
+  button { cursor:pointer; background:var(--primary); border-color:var(--primary); font-weight:600; }
+  button.secondary { background:transparent; }
+  button.danger { background:#b91c1c; border-color:#b91c1c; }
+  pre { background:#0b1220; border:1px solid var(--line); border-radius:8px; padding:12px; overflow:auto; max-height:420px; white-space:pre-wrap; }
+  .ok { color:var(--ok); } .err { color:var(--err); }
+  .warn { background:#3b2f0f; border:1px solid #a16207; color:#fde68a; padding:10px 14px; border-radius:8px; margin:12px 16px 0; }
+  .tabs { display:flex; gap:4px; border-bottom:1px solid var(--line); margin-bottom:16px; }
+  .tabs button { background:transparent; border:0; border-bottom:2px solid transparent; border-radius:0; }
+  .tabs button.active { border-bottom-color:var(--primary); color:#fff; }
+  .hide { display:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>HOJ 管理台</h1>
+  <div class="row">
+    <label>Base URL</label><input id="base" value="" placeholder="留空=同源，或填 https://hoj.example.com">
+    <label>用户名</label><input id="user" value="root">
+    <label>密码</label><input id="password" type="password" placeholder="或使用 Cookie">
+    <label>Cookie</label><input id="cookie" placeholder="sid=...">
+    <label><input type="checkbox" id="remember"> 记住登录</label>
+    <button id="saveConfigBtn" class="secondary">保存配置</button>
+    <button id="loginBtn">登录 / 验证</button>
+    <button id="clearBtn" class="secondary">清除保存</button>
+  </div>
+</header>
+<div id="fileWarn" class="warn" style="display:none">⚠️ 当前以 <code>file://</code> 打开，浏览器会拦截跨域请求。请改用本地 HTTP 服务或部署到 HOJ 同源目录：
+<code>python -m http.server 8080</code>，然后访问 <code>http://localhost:8080/hoj-admin.html</code>。</div>
+<div class="container">
+  <div class="tabs">
+    <button class="active" data-tab="problems">题目</button>
+    <button data-tab="contests">比赛</button>
+    <button data-tab="users">用户/团队</button>
+    <button data-tab="judges">评测</button>
+    <button data-tab="system">系统</button>
+  </div>
+
+  <section id="tab-problems">
+    <div class="card">
+      <h3>题目管理</h3>
+      <div class="row">
+        <label>题目 ID</label><input id="pid" placeholder="1000">
+        <button data-fn="listProblems">题目列表</button>
+        <button data-fn="getProblem">查看题目</button>
+        <button data-fn="deleteProblem" class="danger">删除题目</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>发布题目</h3>
+      <div class="row">
+        <label>题目目录</label><input id="problemDir" placeholder="examples/demo" style="min-width:360px">
+        <label>导入 Mode</label>
+        <select id="publishMode">
+          <option value="zip">后台导入 zip（需要 root）</option>
+          <option value="direct">admin API 直传</option>
+        </select>
+        <button data-fn="publishProblem">发布</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-contests" class="hide">
+    <div class="card">
+      <h3>比赛列表 / 创建</h3>
+      <div class="row">
+        <button data-fn="listContests">比赛列表</button>
+        <label>标题</label><input id="contestTitle" value="OI 模拟赛">
+        <label>赛制</label>
+        <select id="contestType"><option value="1">OI</option><option value="0">ACM</option></select>
+        <label>开始</label><input id="contestStart" value="2025-11-01T08:30:00.000Z">
+        <label>结束</label><input id="contestEnd" value="2025-11-01T12:00:00.000Z">
+        <button data-fn="createContest">创建 OI 比赛</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-users" class="hide">
+    <div class="card">
+      <h3>用户/团队</h3>
+      <div class="row">
+        <button data-fn="listUsers">用户列表</button>
+        <label>CSV</label><input id="usersFile" placeholder="users.csv">
+        <button data-fn="batchUsers">批量导入</button>
+        <button data-fn="listGroups">团队列表</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-judges" class="hide">
+    <div class="card">
+      <h3>评测管理</h3>
+      <div class="row">
+        <label>提交 ID</label><input id="submitId" placeholder="12345">
+        <button data-fn="rejudge">重判</button>
+        <button data-fn="cancelJudge" class="danger">取消</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-system" class="hide">
+    <div class="card">
+      <h3>系统信息</h3>
+      <div class="row">
+        <button data-fn="dashboard">后台看板</button>
+        <button data-fn="serviceInfo">服务信息</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="card"><h3>结果</h3><pre id="output">等待操作...</pre></div>
+</div>
+
+<script>
+const output = document.getElementById('output');
+const auth = () => {
+  const cookie = document.getElementById('cookie').value.trim();
+  const headers = { 'Content-Type': 'application/json' };
+  if (cookie) headers['Cookie'] = cookie;
+  return { headers };
+};
+
+function show(data) {
+  output.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+  output.className = '';
+}
+
+function showError(e) {
+  output.textContent = '错误: ' + (e.message || e);
+  output.className = 'err';
+}
+
+async function api(method, path, body) {
+  const { headers } = auth();
+  // 所有请求都发给本地 Python UI 服务，由它代理到 HOJ，避免 CORS / file:// 问题
+  const res = await fetch('/' + path, { method, headers, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch { data = text; }
+  if (res.status >= 400) throw new Error(typeof data === 'string' ? data : JSON.stringify(data));
+  return data;
+}
+
+const AUTH_KEY = 'hoj_admin_auth';
+
+function saveAuth() {
+  if (!document.getElementById('remember').checked) return;
+  const data = {
+    base: document.getElementById('base').value.trim(),
+    user: document.getElementById('user').value.trim(),
+    password: document.getElementById('password').value,
+    cookie: document.getElementById('cookie').value.trim(),
+  };
+  try { localStorage.setItem(AUTH_KEY, JSON.stringify(data)); } catch (e) { /* file:// 或隐私模式可能失败 */ }
+}
+
+function loadAuth() {
+  try {
+    const raw = localStorage.getItem(AUTH_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data.base) document.getElementById('base').value = data.base;
+    if (data.user) document.getElementById('user').value = data.user;
+    if (data.password) document.getElementById('password').value = data.password;
+    if (data.cookie) document.getElementById('cookie').value = data.cookie;
+    document.getElementById('remember').checked = true;
+  } catch (e) { /* 忽略 */ }
+}
+
+function clearAuth() {
+  try { localStorage.removeItem(AUTH_KEY); } catch (e) {}
+  document.getElementById('base').value = '';
+  document.getElementById('user').value = '';
+  document.getElementById('password').value = '';
+  document.getElementById('cookie').value = '';
+  document.getElementById('remember').checked = false;
+  show('已清除保存的登录信息');
+}
+
+async function loadConfig() {
+  try {
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    if (data && data.base) document.getElementById('base').value = data.base;
+  } catch (e) { /* 本地服务未启动或暂时不可用 */ }
+}
+
+async function saveConfig() {
+  const base = document.getElementById('base').value.trim().replace(/\/$/, '');
+  await fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ base }),
+  });
+}
+
+async function login() {
+  const user = document.getElementById('user').value.trim();
+  const password = document.getElementById('password').value;
+  try {
+    await saveConfig();
+    const data = await api('POST', 'api/admin/login', { username: user, password });
+    show(data);
+    saveAuth();
+  } catch (e) { showError(e); }
+}
+
+async function run(fn) {
+  try {
+    if (fn === 'listProblems') show(await api('GET', 'api/admin/problem/get-problem-list?limit=10&currentPage=1'));
+    else if (fn === 'getProblem') { const pid = document.getElementById('pid').value.trim(); show(await api('GET', `api/admin/problem?pid=${encodeURIComponent(pid)}`)); }
+    else if (fn === 'deleteProblem') { const pid = document.getElementById('pid').value.trim(); show(await api('DELETE', `api/admin/problem?pid=${encodeURIComponent(pid)}`)); }
+    else if (fn === 'publishProblem') { show('请在 DeepSeek Harness 会话中执行 hoj-bridge/publish_problem.py；本静态页不直接运行本地脚本。'); }
+    else if (fn === 'listContests') show(await api('GET', 'api/admin/contest/get-contest-list?limit=10&currentPage=1'));
+    else if (fn === 'createContest') {
+      const body = {
+        title: document.getElementById('contestTitle').value,
+        type: parseInt(document.getElementById('contestType').value),
+        startTime: document.getElementById('contestStart').value,
+        endTime: document.getElementById('contestEnd').value,
+        auth: 0, visible: true, openRank: true
+      };
+      show(await api('POST', 'api/admin/contest', body));
+    }
+    else if (fn === 'listUsers') show(await api('GET', 'api/admin/user/get-user-list?limit=10&currentPage=1'));
+    else if (fn === 'batchUsers') show('请在 DSH 会话中执行 manage_hoj.py user-batch-insert；浏览器隔离环境不读本地 CSV。');
+    else if (fn === 'listGroups') show(await api('GET', 'api/get-group-list?limit=10&currentPage=1'));
+    else if (fn === 'rejudge') { const id = document.getElementById('submitId').value.trim(); show(await api('GET', `api/admin/judge/rejudge?submitId=${encodeURIComponent(id)}`)); }
+    else if (fn === 'cancelJudge') { const id = document.getElementById('submitId').value.trim(); show(await api('GET', `api/admin/judge/cancel-judge?submitId=${encodeURIComponent(id)}`)); }
+    else if (fn === 'dashboard') show(await api('GET', 'api/admin/dashboard/get-dashboard-info'));
+    else if (fn === 'serviceInfo') show(await api('GET', 'api/admin/config/get-service-info'));
+  } catch (e) { showError(e); }
+}
+
+document.getElementById('loginBtn').addEventListener('click', login);
+document.getElementById('saveConfigBtn').addEventListener('click', async () => {
+  try { await saveConfig(); show('配置已保存'); } catch (e) { showError(e); }
+});
+document.getElementById('clearBtn').addEventListener('click', clearAuth);
+document.querySelectorAll('button[data-fn]').forEach(b => b.addEventListener('click', () => run(b.dataset.fn)));
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('active', x === b));
+  document.querySelectorAll('.container > section').forEach(s => s.classList.toggle('hide', s.id !== 'tab-' + b.dataset.tab));
+}));
+
+loadAuth();
+loadConfig();
+
+if (location.protocol === 'file:') {
+  document.getElementById('fileWarn').style.display = 'block';
+  show('请勿直接以 file:// 打开本页；请使用本地 HTTP 服务或部署到 HOJ 同源目录。');
+}
+</script>
+</body>
+</html>

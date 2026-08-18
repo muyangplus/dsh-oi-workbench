@@ -1,0 +1,123 @@
+# Hydro 题目包模板（problem.yaml + testdata/config.yaml）
+
+> 字段依据 Hydro 官方源码逐项验证：
+> - 包导入逻辑：`packages/hydrooj/src/model/problem.ts`（import）
+> - 评测配置 schema：`packages/common/types.ts`（ProblemConfigFile / SubtaskConfig / TestCaseConfig）
+> - 官方文档：<https://docs.hydro.ac/zh/docs/Hydro/user/problem-format>
+
+## zip 布局
+
+```text
+problem.zip
+├── problem.yaml           # 题目元信息（标题/pid/标签/难度）→ 见下方模板 A
+├── problem.md             # 题面 Markdown（导入后直接成为题目内容；也可放 statement/problem.md）
+├── testdata/
+│   ├── config.yaml        # 评测配置（时间/内存/测试点或 subtask/评测方式）→ 见下方模板 B
+│   ├── 1.in / 1.out       # 隐藏测试数据
+│   └── ...
+├── data/sample/           # 样例（同时进入展示样例与测试数据）
+├── std/                   # 标程源码（导入为 AC 评测记录）
+└── solution/              # 题解（可选）
+```
+
+## 模板 A：problem.yaml（zip 根目录）
+
+```yaml
+title: "题目名"
+pid: "P1000"          # 可选；缺省自动编号
+tag:
+  - "知识点1"
+  - "知识点2"
+difficulty: 3         # 0-10，可选
+hidden: false         # 可选
+```
+
+## 模板 B：testdata/config.yaml（Hydro 评测配置）
+
+```yaml
+type: default              # default | submit_answer | interactive | communication
+time: 1000ms               # 时间限制（必须带单位 ms）
+memory: 256m               # 内存限制（单位 m）
+score: 100                 # 总分（可选，默认 100）
+
+# 传统模式：逐数据点（无部分分时用）
+# cases:
+#   - input: 1.in
+#     output: 1.out
+#     time: 1000ms
+#     memory: 256m
+
+# OI 部分分模式（推荐）
+subtasks:
+  - id: 1
+    score: 20
+    type: min              # subtask 内取分方式: min | max | sum
+    cases:
+      - input: 1.in
+        output: 1.out
+  - id: 2
+    score: 30
+    type: sum
+    if: [1]                # 依赖：必须先通过 subtask 1 才计分（OI 捆绑/递进分点）
+    cases:
+      - input: 4.in
+        output: 4.out
+  - id: 3
+    score: 50
+    type: sum
+    if: [1, 2]
+    cases:
+      - input: 7.in
+        output: 7.out
+
+# 特殊评测（可选）：checker/interactor 源码放 testdata/ 下
+# checker_type: testlib
+# checker: spj.cpp
+# type: interactive
+# interactor: interactor.cpp
+```
+
+## HOJ（HimitZH/HOJ）导入 JSON 模板
+
+`generator/build_hoj_package.py` 会把 `spec.json` 转成 HOJ 导入 zip：
+
+```text
+problem_P1001.zip
+├── problem_P1001.json
+└── problem_P1001/
+    ├── 1.in
+    ├── 1.out
+    └── ...
+```
+
+`spec.json` 新增字段（均可选）：
+
+```json
+{
+  "type": "oi",                    // oi|acm，默认 oi（OI 场景）
+  "judgeCaseMode": "default",      // default|subtask_lowest|subtask_average
+  "languages": ["C++"],
+  "auth": 1,                       // 1公开 2私有 3比赛中
+  "stackLimit": 512,               // MB
+  "isRemoveEndBlank": true,
+  "openCaseResult": true,
+  "codeShare": true,
+  "fileIO": {"input": "number.in", "output": "number.out"},
+  "compile": {"cpp": "-O2 -std=c++14 -static"}
+}
+```
+
+- `cases` 逐点模式：每个 case 可带 `score`（默认等分 100/n）与 `groupNum`。
+- `subtasks` 模式：自动映射为 HOJ `subtask_lowest` 或显式
+  `judgeCaseMode=subtask_average`，`groupNum` 取 subtask 序号。
+
+## 说明
+
+- `subtasks[].id` 从 1 开始顺序编号；`if` 声明依赖（须先过所列 id 才判本组）。
+- 各 subtask 的 cases 顺序即评测顺序；数据文件名建议连续编号。
+- Hydro 导入方式：网页「从 Hydro 导入」选择 zip，或
+  `POST /d/{domain}/problem/import/hydro`（multipart 字段 `file`）。
+- HOJ 导入方式：HOJ 后台「题目管理 → 导入题目」选择
+  `generator/build_hoj_package.py` 生成的 zip，或
+  `POST /api/file/import-problem`（multipart 字段 `file`）。
+- 也可以用 `generator/build_package.py` 从题目目录一键生成 Hydro 布局。
