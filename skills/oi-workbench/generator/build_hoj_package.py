@@ -28,6 +28,8 @@ import re
 import sys
 import zipfile
 
+import spec_support
+
 DEFAULT_COMPILE_CPP = "-O2 -std=c++14 -static"
 VALID_JUDGE_MODES = {"default", "spj", "interactive"}
 VALID_CASE_MODES = {"default", "subtask_lowest", "subtask_average"}
@@ -244,18 +246,27 @@ def build_hoj_payload(spec, cases, pdir):
         ordered_cases = [dict(c) for c in cases]
     ordered_cases = fill_default_scores(ordered_cases)
 
+    mode = spec_support.resolve_mode(spec)
     type_oi = str(spec.get("type", "oi")).lower() in ("1", "oi", "true")
+    if mode == "acm":
+        type_oi = False
     judge_spec = spec.get("judge") or {}
-    judge_mode = judge_spec.get("type", "default")
+    judge = spec_support.resolve_judge(spec)
+    judge_mode = judge["type"]
     if judge_mode not in VALID_JUDGE_MODES:
         judge_mode = "default"
+    if judge.get("interactor"):
+        judge_mode = "interactive"
+    elif judge.get("spj") or judge.get("checker"):
+        judge_mode = "spj"
 
     jcm = spec.get("judgeCaseMode", "").lower()
     if jcm not in VALID_CASE_MODES:
         jcm = "default"
-    # subtasks 存在时默认使用 subtask_lowest（OI 依赖/捆绑常用）
-    if spec.get("subtasks") and jcm == "default":
+    if mode == "subtask" and jcm == "default":
         jcm = "subtask_lowest"
+    if mode == "acm":
+        jcm = "default"
 
     # 统一 score/groupNum
     for c in ordered_cases:
@@ -274,7 +285,8 @@ def build_hoj_payload(spec, cases, pdir):
     sample_dir = os.path.join(pdir, "sample")
     examples = build_examples_html(sample_dir)
     memory = parse_memory_mb(spec.get("memory", "256m"))
-    file_io = spec.get("fileIO") or {}
+    io_mode, io_in, io_out = spec_support.resolve_io(spec)
+    file_io = {"input": io_in, "output": io_out} if io_mode == "file" else {}
     languages = spec.get("languages") or ["C++"]
     tags = spec.get("tags") or []
     code_templates = spec.get("codeTemplates") or []
@@ -308,7 +320,7 @@ def build_hoj_payload(spec, cases, pdir):
     }
 
     if judge_mode in ("spj", "interactive"):
-        spj_file = judge_spec.get("spjCode")
+        spj_file = judge_spec.get("spjCode") or judge.get("checker")
         if spj_file:
             spj_path = os.path.join(pdir, "data", spj_file)
             if os.path.exists(spj_path):

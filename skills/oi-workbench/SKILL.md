@@ -21,14 +21,23 @@ description: 当用户需要创作 OI 风格竞赛题目（入门级/提高级/�
 - 源文件 ≤ 100 KiB；`main` 返回 `int` 且正常结束返回 0；栈空间与题目内存限制一致；
   禁止源码修改编译器参数或使用系统结构相关指令。
 - 题面风格参考 `reference/entry/` 与 `reference/intermediate/` 自出原创题。
+- 输入输出：默认 stdin/stdout；`spec.json` 里 `io.type=file` 时，运行时读/写 `io.input/io.output`
+  （文件名一律英文小写，约定见 `templates/problem.yaml`）。
+- 评测模式（`spec.json` 的 `judge.mode`）：`traditional` 逐点 / `subtask` 捆绑 / `acm` 逐点即时；
+  特殊评测 `judge.spj` 配 `checker`，checker 源码放 `data/` 或 `checker/`。
 
 # 1. 出题前置（每道题必做）
 
-1. **锁定知识点**：读取 `knowledge-base/level-1-basic.md` / `level-2-intermediate.md` /
+1. **锁定知识点**：先并入**用户层知识库**（`~/.dsh-oi-workbench/kb/`，用
+   `ui/user_content.py kb list|show|search` 检索；同名 `topic` 以用户卡为准，可自定义层级）；
+   再读取 `knowledge-base/level-1-basic.md` / `level-2-intermediate.md` /
    `level-3-expert.md` 中对应级别清单，
    按 `knowledge-base/workflow.md` 确定：目标级别、难度系数区间、
    主知识点 1 个、辅助知识点 ≤3 个、超纲检查结论。
 2. **填母题卡**：用 `templates/variation.md` 的母题卡模板记录。
+
+> 用户自定义知识库 / 参考题的规范见 `specs/user-content.md`（内置 + 用户两层合并）；
+> 增删改查走 `ui/user_content.py` 与 `/oiwb kb`、`/oiwb ref` 命令（见 `commands/kb.md`）。
 
 # 2. 测试点与分数表设计（OI 评分方式）
 
@@ -67,6 +76,11 @@ description: 当用户需要创作 OI 风格竞赛题目（入门级/提高级/�
      对拍数据必须满足题面全部约束（越界 UB 会产生假分歧）；
      可用 `generator/local_judge.py <题目目录> --source std/std.cpp` 快速逐点验证；
    - 击杀矩阵全绿；`FAIL` 一律视为题目基础设施错误，修复而非绕行。
+4. **题面-生成器一致性（以题面规定为准）**：
+   - 测试点表格的点数（如 20/25 点）与每档数据范围，必须与生成器参数、`spec.json` 逐点对应；
+   - 生成器/数据与题面冲突时，**修正生成器与数据以符合题面**（题面数值笔误例外，后者改题面）；
+   - 提交前跑 `tools/ci_quality.py` 的参考题一致性检查（表格点数 == data 对数 == spec cases 数），
+     并把数据修正/验证记录写进该题的 `VERIFICATION.md`。
 
 # 5. 题面与样例
 

@@ -3,12 +3,3 @@ __pycache__/
 *.tgz
 .tmp/
 node_modules/
-.DS_Store
-
-# CCF 官方原文不进入仓库；如需本地参考，请自行从 CCF 官方渠道获取
-skills/oi-workbench/reference/*.txt
-skills/oi-workbench/reference/*.pdf
-skills/oi-workbench/knowledge-base/*.pdf
-**/2025-CSP-*.txt
-**/NOI_Syllabus*.pdf
-**/syllabus*.txt

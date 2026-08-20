@@ -21,6 +21,9 @@ jobs:
       - name: Python syntax check
         run: python -m compileall skills
 
+      - name: Code quality checks (version/spec/io/judge/user-content/package-mapping)
+        run: python tools/ci_quality.py
+
       - name: Validate all reference packages (Hydro/HOJ check)
         run: python skills/oi-workbench/generator/build_all_reference.py
 
@@ -34,3 +37,13 @@ jobs:
         run: |
           python skills/oi-workbench/hoj-bridge/manage_hoj.py --help >/dev/null
           python skills/oi-workbench/hoj-bridge/publish_problem.py --help >/dev/null
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: npm pack (package integrity)
+        run: |
+          npm pack --dry-run 2>&1 | tee /tmp/npm-pack.txt
+          grep -q "skills/oi-workbench/ui/user_content.py" /tmp/npm-pack.txt
+          grep -q "skills/oi-workbench/generator/spec_support.py" /tmp/npm-pack.txt

@@ -35,7 +35,10 @@ spec.json 字段:
   "subtasks": [                # 捆绑/依赖模式（深入系列部分赛事才用）
     {"score": 20, "type": "min", "if": [], "cases": [{"input": "1.in", "output": "1.out"}]}
   ],
-  "judge": {"type": "default"} # default|special|interactive（checker/interactor 源码放 data/ 并在 spec 指明）
+  "judge": {"type": "default", "mode": "traditional", "spj": false, "checker": "spj.cpp"}
+           # type: default|interactive（checker/interactor 源码放 data/ 并在 spec 指明）
+           # mode: traditional|subtask|acm（计分语义；subtask 时配 subtasks）
+  "io": {"type": "standard" | "file", "input": "xxx.in", "output": "xxx.out"}  # 文件读写模式
 }
 
 生成的 zip 布局（与 Hydro import 逻辑完全对应）:
@@ -55,6 +58,8 @@ import json
 import os
 import sys
 import zipfile
+
+import spec_support
 
 
 def load_spec(pdir):
@@ -95,16 +100,20 @@ def build_problem_yaml(spec):
 def build_config_yaml(spec, data_files, subtask_cases):
     """生成 testdata/config.yaml（ProblemConfigFile）。"""
     lines = []
-    jtype = (spec.get("judge") or {}).get("type", "default")
+    judge = spec_support.resolve_judge(spec)
+    io_mode, io_in, io_out = spec_support.resolve_io(spec)
+    jtype = judge["type"]
     if jtype != "default":
         lines.append(f"type: {jtype}")
     lines.append(f"time: {ms_to_hydro(spec.get('time', '1000ms'))}")
     lines.append(f"memory: {spec.get('memory', '256m')}")
     lines.append(f"score: 100")
+    if io_mode == "file":
+        lines.append(f"inputFile: {io_in}")
+        lines.append(f"outputFile: {io_out}")
 
-    judge = spec.get("judge") or {}
     if judge.get("checker"):
-        lines.append(f"checker_type: testlib")
+        lines.append("checker_type: testlib")
         lines.append(f"checker: {judge['checker']}")
     if judge.get("interactor"):
         lines.append(f"interactor: {judge['interactor']}")
@@ -142,6 +151,13 @@ def build_config_yaml(spec, data_files, subtask_cases):
 
 def validate(spec, data_dir):
     issues = []
+    judge = spec_support.resolve_judge(spec)
+    if judge.get("spj") or judge.get("checker"):
+        checker = judge.get("checker")
+        if not checker:
+            issues.append("judge.spj=true 但未指定 judge.checker")
+        elif not os.path.exists(os.path.join(data_dir, checker)):
+            issues.append("checker 文件不存在于 data/: %s" % checker)
     pairs = sorted(
         (f, os.path.splitext(f)[0] + ".out")
         for f in os.listdir(data_dir) if f.endswith(".in")
@@ -217,9 +233,16 @@ def main():
         if os.path.exists(md):
             z.write(md, "problem.md")
         # 测试数据 + config.yaml
+        written = set()
         for f, o in pairs:
             z.write(os.path.join(data_dir, f), f"testdata/{f}")
             z.write(os.path.join(data_dir, o), f"testdata/{o}")
+            written.add(f)
+            written.add(o)
+        # 其余 data/ 文件（checker/interactor 等特殊评测源码）一并进 testdata/
+        for f in sorted(os.listdir(data_dir)):
+            if f not in written and os.path.isfile(os.path.join(data_dir, f)):
+                z.write(os.path.join(data_dir, f), f"testdata/{f}")
         z.writestr("testdata/config.yaml", config_yaml)
         # 样例（Hydro: data/sample/* 同时进 testdata 与附加文件）
         sample_dir = os.path.join(pdir, "sample")

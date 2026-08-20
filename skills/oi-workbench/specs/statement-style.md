@@ -92,6 +92,15 @@ OI 题面风格：结构固定、措辞严谨、**零做法提示**、数据范�
 - 禁止源码中修改编译器参数（如 `#pragma`）或使用系统结构相关指令；
 - 只提供 Linux 格式附加样例文件。
 
+### 4.2 IO 模式与评测模式（批次 2，v0.1.2）
+
+- 每道题的 IO 与评测模式由 `spec.json` 控制（字段见 `templates/problem.yaml`）：
+  - `io.type`：`standard`（stdin/stdout，默认）或 `file`（运行时读/写 `io.input`/`io.output`，文件名一律英文小写）；
+  - `judge.mode`：`traditional`（逐点）/ `subtask`（捆绑，配 `subtasks`）/ `acm`（逐点即时，无部分分）；
+  - `judge.spj` + `judge.checker`/`judge.interactor`：特殊评测，checker/interactor 源码放 `data/` 或 `checker/`
+    （本地评测按 testlib 命令行约定：exit 0 = AC）。
+- 题面「输入格式 / 输出格式」仅在文件读写时说明文件名，其余按本规范固定结构。
+
 ## 5. 样例与大样例（附件机制）
 
 - 样例 1-2 内联在题面（小规模，覆盖不同分支/输出类型）。

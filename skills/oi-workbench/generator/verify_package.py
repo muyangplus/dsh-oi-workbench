@@ -96,6 +96,8 @@ def main():
         for f in ("time", "memory"):
             if f not in cfg:
                 warnings.append(f"config.yaml 缺少 {f}（默认 1000ms/256m 可用）")
+        if cfg.get("inputFile") or cfg.get("outputFile"):
+            print(f"[info] file IO: 读 {cfg.get('inputFile')} → 写 {cfg.get('outputFile')}")
         subtasks = cfg.get("subtasks")
         if subtasks is not None:
             cases = []
