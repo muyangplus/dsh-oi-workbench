@@ -33,12 +33,14 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: npm install --no-package-lock --legacy-peer-deps
       - name: Publish npm package
+        shell: bash
         run: |
+          npm config get registry
           if [ "${{ github.ref_name }}" = "dev" ]; then
             npm version prerelease --preid=beta --no-git-tag-version
-            npm publish --tag beta --provenance --access public
+            npm publish --tag beta --provenance --access public || { echo '=== npm debug log tail ==='; tail -n 200 "$HOME/.npm/_logs/$(ls -t "$HOME/.npm/_logs" 2>/dev/null | head -1)"; exit 1; }
           else
-            npm publish --provenance --access public
+            npm publish --provenance --access public || { echo '=== npm debug log tail ==='; tail -n 200 "$HOME/.npm/_logs/$(ls -t "$HOME/.npm/_logs" 2>/dev/null | head -1)"; exit 1; }
           fi
 
   release:
