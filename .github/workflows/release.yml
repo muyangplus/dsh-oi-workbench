@@ -39,7 +39,9 @@ jobs:
           rm -f .npmrc "$HOME/.npmrc" "$RUNNER_TEMP/.npmrc" 2>/dev/null || true
           npm config get registry
           if [ "${{ github.ref_name }}" = "dev" ]; then
-            npm version prerelease --preid=beta --no-git-tag-version
+            BASE_VERSION=$(node -p "require('./package.json').version")
+            TIMESTAMP=$(date +%Y%m%d%H%M%S)
+            npm version "${BASE_VERSION}-beta.${TIMESTAMP}" --no-git-tag-version
             npm publish --tag beta --provenance --access public || { echo '=== npm debug log tail ==='; tail -n 200 "$HOME/.npm/_logs/$(ls -t "$HOME/.npm/_logs" 2>/dev/null | head -1)"; exit 1; }
           else
             npm publish --provenance --access public || { echo '=== npm debug log tail ==='; tail -n 200 "$HOME/.npm/_logs/$(ls -t "$HOME/.npm/_logs" 2>/dev/null | head -1)"; exit 1; }
