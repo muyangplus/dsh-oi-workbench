@@ -14,6 +14,8 @@
     "cordis.patch.yml",
     "skills",
     "!skills/oi-workbench/reference/**/data",
+    "!skills/**/__pycache__",
+    "!**/*.py[cod]",
     "README.md",
     "LICENSE",
     "NOTICE.md"
