@@ -6,7 +6,8 @@ OI 出题工作台 —— DeepSeek Harness 的 **skill-first 插件**：核心�
 安装后，在任意会话中可用 `oi-workbench` 技能：按内部整理的知识点速查锁定知识点，
 设计测试点表格与特殊性质，针对性构造数据，制作大样例附件，本地评测，打包 **Hydro / HOJ**
 原生题目包，并把题目/比赛/团队发布到 Hydro 或 HOJ；还提供 Python 外部管理 UI 和
-`/hoj`、`/oiwb`、`/oj` 系统斜杠命令。
+`/hoj`、`/oiwb`、`/oj` 系统斜杠命令。用户还可**自行添加自己的知识库速查卡与原创参考题**
+（见「用户自定义知识库 / 参考题」一节）。
 
 ## 安装
 
@@ -40,16 +41,48 @@ dsh plugin --profile web add dsh-oi-workbench
 skills/oi-workbench/
 ├── SKILL.md               # 出题工作流（技能入口，含评测约定）
 ├── knowledge-base/        # 内部整理的知识点速查：入门级/提高级/专家级
-├── specs/                 # 规范：测试点表格、数据构造、题面风格、变式
-├── templates/             # 模板：题面、分数表、题目包
+├── specs/                 # 规范：测试点表格、数据构造、题面风格、变式、用户自定义内容
+├── templates/             # 模板：题面、分数表、题目包、知识库卡片
 ├── generator/             # Hydro/HOJ 打包器 + 校验器 + 本地评测器（Python 标准库）
 ├── hydro-bridge/          # Hydro OJ 对接（登录/题目/比赛/团队）
 ├── hoj-bridge/            # HOJ 完整管理对接（题目/比赛/训练/用户/团队/公告/标签/评测）
-├── ui/                    # Python 外部管理 UI（hoj_ui.py + hoj-admin.html）
+├── ui/                    # Python 外部管理 UI（hoj_ui.py + hoj-admin.html + user_content.py）
 ├── commands/              # 斜杠指令文档 + 自动注册命令文件（register/）
 ├── reference/             # 原创参考题（入门级 4 题 + 提高级 4 题）
 └── examples/              # 示例题（果园分装，含完整验证记录）
 ```
+
+## 用户自定义知识库 / 参考题（批次 1）
+
+用户可自行增删改查 **reference / knowledge-base**，数据存于 `~/.dsh-oi-workbench/`
+（`kb/` 与 `reference/`），不侵入插件安装目录；技能「锁定知识点」时并入使用，
+同名 `topic` 以用户卡为准，`level` 允许自定义新增。规范见
+`skills/oi-workbench/specs/user-content.md`，命令见
+`skills/oi-workbench/commands/kb.md`。
+
+```powershell
+# 知识库卡片：新增 / 检索 / 校验
+python skills/oi-workbench/ui/user_content.py kb add --topic 并查集 --level 提高级 --summary "..."
+python skills/oi-workbench/ui/user_content.py kb search 并查集
+python skills/oi-workbench/ui/user_content.py kb validate
+
+# 参考题：校验后加入用户层 / 列出
+python skills/oi-workbench/ui/user_content.py ref add my-problem --level 提高级 --id my-p1
+python skills/oi-workbench/ui/user_content.py ref list
+```
+
+## 路线图 / TODO（未完成功能）
+
+以下能力已规划未完成，将按 `version-records/ROADMAP.md` 分批填充（不含版本号承诺）：
+
+- [ ] **故事题面 + 故事设计能力**：原创故事构造复杂剧情、知识点融入题面；`story-card` 故事设计能力。
+- [ ] **一次性出一场比赛**：一段描述 → 多题 + 故事主线 + 数据 + 打包 + 一键建赛。
+- [ ] **连续剧情 / 连载**：同场共享主线 + 跨场次连载；`story.yaml` 剧本仓库 + 连续性检查。
+- [ ] **支持 spj 和交互题（完整评测）**：当前已提供基础本地 spj（checker 按 exit 0=AC）与包级
+      `judge.spj` / `checker` / `interactor` 字段；待补 testlib 标准 checker、交互题 interactor 的
+      真机评测与配套样例验证。
+- [ ] **支持 testlib.h**：spj / 交互题 checker / interactor 统一改用 Codeforces 标准
+      `testlib.h`（自动链接内置 `testlib.h`，本地评测与远程 OJ 行为一致）。
 
 ## 常用命令
 
@@ -88,6 +121,8 @@ python hoj-bridge\manage_hoj.py --help
 | `/hoj contests` | HOJ 比赛列表 |
 | `/hoj publish <目录>` | 发布题目到 HOJ |
 | `/hoj rejudge <submitId>` | 重判提交 |
+| `/oiwb kb list\|show\|search\|add\|edit\|rm\|validate` | 用户自定义知识库（见 commands/kb.md） |
+| `/oiwb ref list\|show\|add\|rm\|validate` | 用户自定义参考题（见 commands/kb.md） |
 
 ## UI 管理
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-local_judge.py —— 本地评测脚本（OI/OI 风格）。
+local_judge.py —— 本地评测脚本（OI 风格，支持 standard/file IO、spj、三种计分模式）。
 
 编译命令固定遵循全国统一评测规范：
     g++ -O2 -std=c++14 -static -o <exe> <source>
@@ -11,13 +11,20 @@ local_judge.py —— 本地评测脚本（OI/OI 风格）。
         --source std/std.cpp \
         --time 1000 --memory 512 \
         [--compile "-O2 -std=c++14 -static"] \
-        [--file-io number.in number.out]
+        [--file-io READ WRITE]
+
+IO 与评测模式从 spec.json 读取（约定见 spec_support.py / templates/problem.yaml）：
+    "io":    { "type": "standard"|"file", "input": "xxx.in", "output": "xxx.out" }
+    "judge": { "spj": bool, "checker": "spj.cpp", "interactor": "interactor.cpp",
+               "mode": "traditional"|"subtask"|"acm" }
+旧字段兼容：spec.fileIO 等效 io.type=file；judge.type=special 等效 spj。
 
 说明:
-    - 支持 stdio 与 file IO。
-    - 输出比较按 OI 规则：全文比较（过滤行末空格及文末换行）。
-    - Windows 本地时间只能作参考，正式时限以“全国统一评测机
-      Intel Core Ultra 9 285K @ 3.70GHz，关闭睿频与能效核，96GB 内存”为准。
+    - standard：stdin/stdout 管道；file：临时工作区，std 读/写 io 文件名，比对写出的文件。
+    - spj：按 testlib 命令行约定调用 checker <input> <output> <answer>，
+      退出码 0 = AC，否则 WA（checker 源码放 data/ 或 checker/ 下）。
+    - 计分：traditional/acm 逐点；subtask 捆绑（组内全 AC 且依赖组通过才计分）。
+    - 输出比较：全文比较（过滤行末空格及文末换行）。
 """
 
 import argparse
@@ -32,6 +39,37 @@ import time
 DEFAULT_COMPILE = "-O2 -std=c++14 -static"
 DEFAULT_TIME_MS = 1000
 DEFAULT_MEMORY_MB = 512
+
+try:
+    from spec_support import resolve_io, resolve_judge, resolve_mode
+except ImportError:  # 兜底：在被以非规则方式调用时也能工作
+    def resolve_io(spec):
+        io = spec.get("io") or {}
+        if isinstance(io, dict) and io.get("type") == "file":
+            return "file", io.get("input") or "problem.in", io.get("output") or "problem.out"
+        fio = spec.get("fileIO")
+        if isinstance(fio, dict) and (fio.get("input") or fio.get("output")):
+            return "file", fio.get("input") or "problem.in", fio.get("output") or "problem.out"
+        return "standard", None, None
+
+    def resolve_judge(spec):
+        judge = dict(spec.get("judge") or {})
+        jtype = judge.get("type") or "default"
+        if jtype == "special":
+            jtype = "default"
+            judge["spj"] = True
+        if jtype in ("interactive", "communication"):
+            judge["spj"] = True
+        return {"type": jtype, "spj": bool(judge.get("spj")),
+                "checker": judge.get("checker"), "interactor": judge.get("interactor")}
+
+    def resolve_mode(spec):
+        mode = (spec.get("judge") or {}).get("mode")
+        if mode in ("traditional", "subtask", "acm"):
+            return mode
+        if str(spec.get("type", "oi")).lower() in ("acm", "0", "false"):
+            return "acm"
+        return "subtask" if spec.get("subtasks") else "traditional"
 
 
 def load_spec(pdir):
@@ -85,14 +123,22 @@ def get_score_map(pdir, cases_count):
         base = 100 // cases_count
         rem = 100 % cases_count
         for i in range(1, cases_count + 1):
-            scores[f"{i}.in"] = base + (1 if i <= rem else 0)
+            scores["%d.in" % i] = base + (1 if i <= rem else 0)
     return scores
 
 
 def compile_source(source, out_exe, compile_flags):
     cmd = ["g++"] + compile_flags.split() + [source, "-o", out_exe]
-    print(f"[compile] {' '.join(cmd)}")
+    print("[compile] %s" % " ".join(cmd))
     return subprocess.run(cmd, capture_output=True, text=True)
+
+
+def find_checker_source(pdir, name):
+    for d in ("data", "checker"):
+        p = os.path.join(pdir, d, name)
+        if os.path.isfile(p):
+            return p
+    return None
 
 
 def run_stdio(exe, in_path, timeout):
@@ -123,8 +169,19 @@ def run_fileio(exe, workdir, in_path, read_name, write_name, timeout):
     return cp, elapsed_ms, output
 
 
+def run_checker(checker_exe, in_path, actual_path, exp_path, timeout):
+    st = time.perf_counter()
+    try:
+        cp = subprocess.run([checker_exe, in_path, actual_path, exp_path],
+                            capture_output=True, text=True, timeout=timeout)
+        elapsed_ms = (time.perf_counter() - st) * 1000
+    except subprocess.TimeoutExpired:
+        return None, timeout * 1000
+    return cp, elapsed_ms
+
+
 def main():
-    ap = argparse.ArgumentParser(description="本地 OI 评测器")
+    ap = argparse.ArgumentParser(description="本地 OI 评测器（standard/file IO，spj，三态计分）")
     ap.add_argument("problem_dir")
     ap.add_argument("--source", default="std/std.cpp")
     ap.add_argument("--compile", default=DEFAULT_COMPILE)
@@ -137,11 +194,11 @@ def main():
     spec = load_spec(pdir)
     time_ms = args.time or parse_time_ms(spec.get("time", "1000ms"))
     memory_mb = args.memory or parse_memory_mb(spec.get("memory", "256m"))
-    timeout = max(0.05, time_ms / 1000.0 * 1.5 + 0.5)  # 给本地一点余量；正式时限按 time_ms
+    timeout = max(0.05, time_ms / 1000.0 * 1.5 + 0.5)
 
     data_dir = os.path.join(pdir, "data")
     if not os.path.isdir(data_dir):
-        sys.exit(f"缺少 data/ 目录: {data_dir}")
+        sys.exit("缺少 data/ 目录: %s" % data_dir)
     pairs = []
     for f in sorted(os.listdir(data_dir)):
         if f.endswith(".in"):
@@ -154,10 +211,16 @@ def main():
     if not pairs:
         sys.exit("data/ 下没有 .in/.out 配对")
 
-    file_io = args.file_io or (spec.get("fileIO") and (spec["fileIO"].get("input"), spec["fileIO"].get("output"))) or None
+    io_mode, io_in, io_out = resolve_io(spec)
+    judge = resolve_judge(spec)
+    mode = resolve_mode(spec)
+    file_io = args.file_io or (None if io_mode == "standard" else (io_in, io_out))
     source = os.path.join(pdir, args.source)
     if not os.path.exists(source):
-        sys.exit(f"源代码不存在: {source}")
+        sys.exit("源代码不存在: %s" % source)
+
+    print("[mode] judge.mode=%s io=%s%s" % (
+        mode, io_mode, " spj=%s" % judge["checker"] if judge["spj"] and judge["checker"] else ""))
 
     with tempfile.TemporaryDirectory(prefix="oiwb-judge-") as tmp:
         exe = os.path.join(tmp, "program.exe" if os.name == "nt" else "program")
@@ -167,60 +230,129 @@ def main():
             print(cp.stderr)
             sys.exit("编译失败")
         print("[ok] 编译成功")
+        # 预热：新编译 exe 首次启动会被本机杀软/装载器拖慢（首个测试点假 TLE），先跑一小段丢弃结果。
+        try:
+            if file_io:
+                wu = os.path.join(tmp, "warmup")
+                os.makedirs(wu, exist_ok=True)
+                with open(os.path.join(wu, file_io[0]), "w", encoding="utf-8") as f:
+                    f.write("0 0\n")
+                subprocess.run([exe], cwd=wu, stdin=subprocess.DEVNULL,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+            else:
+                subprocess.run([exe], input=b"0 0\n", stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL, timeout=5)
+        except Exception:
+            pass
+
+        checker_exe = None
+        if judge["spj"]:
+            checker = judge.get("checker")
+            if not checker:
+                sys.exit("spj=true 但 spec.judge 缺 checker 文件名")
+            checker_src = find_checker_source(pdir, checker)
+            if not checker_src:
+                sys.exit("spj 未找到 checker 源码: %s（期望在 data/ 或 checker/）" % checker)
+            checker_exe = os.path.join(tmp, "checker.exe" if os.name == "nt" else "checker")
+            ccp = compile_source(checker_src, checker_exe, args.compile)
+            if ccp.returncode != 0:
+                print(ccp.stdout)
+                print(ccp.stderr)
+                sys.exit("checker 编译失败")
 
         score_map = get_score_map(pdir, len(pairs))
-        total = 100
-        got = 0
+        subtasks = spec.get("subtasks")
+        verdicts = {}
         results = []
         for idx, (in_name, out_name) in enumerate(pairs, 1):
             in_path = os.path.join(data_dir, in_name)
             exp_path = os.path.join(data_dir, out_name)
             try:
                 if file_io:
-                    workdir = os.path.join(tmp, f"case{idx}")
+                    workdir = os.path.join(tmp, "case%d" % idx)
                     os.makedirs(workdir, exist_ok=True)
-                    cp, elapsed_ms, actual = run_fileio(
+                    cp, elapsed_ms, actual_text = run_fileio(
                         exe, workdir, in_path, file_io[0], file_io[1], timeout)
+                    actual_path = os.path.join(workdir, file_io[1])
+                    if not os.path.exists(actual_path):
+                        with open(actual_path, "w", encoding="utf-8") as f:
+                            f.write(actual_text or "")
                 else:
                     cp, elapsed_ms = run_stdio(exe, in_path, timeout)
-                    actual = cp.stdout.decode("utf-8", "replace") if isinstance(cp.stdout, bytes) else cp.stdout
+                    actual_text = cp.stdout.decode("utf-8", "replace") if isinstance(cp.stdout, bytes) else (cp.stdout or "")
+                    workdir = os.path.join(tmp, "case%d" % idx)
+                    os.makedirs(workdir, exist_ok=True)
+                    actual_path = os.path.join(workdir, "actual.out")
+                    with open(actual_path, "w", encoding="utf-8") as f:
+                        f.write(actual_text)
+
                 if cp.returncode != 0:
                     verdict = "RE"
                     detail = (cp.stderr or "").decode("utf-8", "replace")[-200:] if isinstance(cp.stderr, bytes) else (cp.stderr or "")[-200:]
                 elif elapsed_ms > time_ms:
                     verdict = "TLE"
-                    detail = f"{elapsed_ms:.1f}ms > {time_ms}ms"
+                    detail = "%.1fms > %dms" % (elapsed_ms, time_ms)
+                elif checker_exe:
+                    ck, ck_ms = run_checker(checker_exe, in_path, actual_path, exp_path, timeout)
+                    if ck is None:
+                        verdict = "TLE"
+                        detail = "checker >= %.0fms" % ck_ms
+                    else:
+                        verdict = "AC" if ck.returncode == 0 else "WA"
+                        msg = ((ck.stdout or "") + (ck.stderr or "")).strip().replace("\n", " ")[:120]
+                        detail = "%.1fms%s" % (elapsed_ms, (" " + msg) if msg else "")
                 else:
                     with open(exp_path, encoding="utf-8", errors="replace") as f:
                         expected = f.read()
-                    if normalize_output(actual) == normalize_output(expected):
-                        verdict = "AC"
-                        detail = f"{elapsed_ms:.1f}ms"
-                    else:
-                        verdict = "WA"
-                        detail = f"{elapsed_ms:.1f}ms"
+                    detail = "%.1fms" % elapsed_ms
+                    verdict = "AC" if normalize_output(actual_text) == normalize_output(expected) else "WA"
             except subprocess.TimeoutExpired:
                 verdict = "TLE"
                 elapsed_ms = timeout * 1000
-                detail = f">= {timeout*1000:.0f}ms"
+                detail = ">= %.0fms" % (timeout * 1000)
             except Exception as e:
                 verdict = "RE"
                 elapsed_ms = 0
                 detail = str(e)[-200:]
 
-            score = score_map.get(in_name)
-            if score is None:
-                # 动态等分
-                base = total // len(pairs)
-                rem = total % len(pairs)
-                score = base + (1 if idx <= rem else 0)
-            if verdict == "AC":
-                got += score
-            results.append((idx, in_name, verdict, score, detail))
-            print(f"  [{idx}] {in_name}: {verdict} +{score if verdict == 'AC' else 0} ({detail})")
+            verdicts[in_name] = verdict
+            results.append((idx, in_name, out_name, verdict, detail))
+            if subtasks:
+                print("  [%d] %s: %s (%s)" % (idx, in_name, verdict, detail))
+            else:
+                score = score_map.get(in_name)
+                if score is None:
+                    base = 100 // len(pairs)
+                    rem = 100 % len(pairs)
+                    score = base + (1 if idx <= rem else 0)
+                results[-1] = (idx, in_name, out_name, verdict, detail)
+                print("  [%d] %s: %s +%d (%s)" % (idx, in_name, verdict, score if verdict == "AC" else 0, detail))
 
-    print(f"[result] {got}/{total}")
-    if got == total:
+        # 计分
+        got = 0
+        if subtasks:
+            passed = set()
+            for gidx, st in enumerate(subtasks, 1):
+                deps = st.get("if") or []
+                st_cases = [c["input"] for c in (st.get("cases") or [])]
+                ok = all(verdicts.get(c) == "AC" for c in st_cases) and all(d in passed for d in deps)
+                gscore = int(st.get("score") or 0)
+                if ok:
+                    passed.add(gidx)
+                    got += gscore
+                print("  [subtask %d] %s +%d (case 依赖: %s)" % (gidx, "AC" if ok else "WA", gscore if ok else 0, deps or "-"))
+        else:
+            for idx, in_name in enumerate([p[0] for p in pairs], 1):
+                score = score_map.get(in_name)
+                if score is None:
+                    base = 100 // len(pairs)
+                    rem = 100 % len(pairs)
+                    score = base + (1 if idx <= rem else 0)
+                if verdicts.get(in_name) == "AC":
+                    got += score
+
+    print("[result] %d/100" % got)
+    if got == 100:
         print("[ok] 全部 AC")
     else:
         print("[warn] 存在非 AC 测试点")

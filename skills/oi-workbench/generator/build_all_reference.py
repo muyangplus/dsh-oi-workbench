@@ -87,6 +87,12 @@ def main():
     if not packages:
         sys.exit("未找到任何参考题包（reference/*/spec.json）")
 
+    try:  # 参考题 data 不入库：校验/打包前先现场重造
+        from regenerate_reference import ensure_all
+        ensure_all()
+    except Exception as e:
+        print("[warn] regenerate_reference 跳过程序: %s" % e)
+
     out_dir = None
     if args.build:
         out_dir = Path(args.out) if args.out else ROOT / ".tmp" / "reference-zips"

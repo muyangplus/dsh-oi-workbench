@@ -10,6 +10,8 @@ OI Workbench 通用入口。
 - `/oiwb hoj contests`：列出 HOJ 比赛
 - `/oiwb hoj publish <题目目录>`：发布题目到 HOJ
 - `/oiwb hoj rejudge <submitId>`：重判提交
+- `/oiwb kb list|show|search|add|add-file|edit|rm|validate`：用户自定义知识库（见 commands/kb.md）
+- `/oiwb ref list|show|add|rm|validate`：用户自定义参考题（见 commands/kb.md）
 
 如果用户输入 `/oiwb` 或 `/oj` 且没有子命令，默认启动 HOJ 外部管理 UI：
 

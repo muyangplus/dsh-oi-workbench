@@ -23,6 +23,7 @@ jobs:
 
   publish:
     needs: test
+    environment: npm-publish
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,14 +31,20 @@ jobs:
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
-      - run: npm ci --legacy-peer-deps
+      - run: npm install --no-package-lock --legacy-peer-deps
       - name: Publish npm package
+        shell: bash
         run: |
+          # 只用 OIDC 可信发布：清掉 setup-node 可能注入的 token 文件，避免旧 NODE_AUTH_TOKEN 盖住 OIDC
+          rm -f .npmrc "$HOME/.npmrc" "$RUNNER_TEMP/.npmrc" 2>/dev/null || true
+          npm config get registry
           if [ "${{ github.ref_name }}" = "dev" ]; then
-            npm version prerelease --preid=beta --no-git-tag-version
-            npm publish --tag beta --provenance --access public
+            BASE_VERSION=$(node -p "require('./package.json').version")
+            TIMESTAMP=$(date +%Y%m%d%H%M%S)
+            npm version "${BASE_VERSION}-beta.${TIMESTAMP}" --no-git-tag-version
+            npm publish --tag beta --provenance --access public || { echo '=== npm debug log tail ==='; tail -n 200 "$HOME/.npm/_logs/$(ls -t "$HOME/.npm/_logs" 2>/dev/null | head -1)"; exit 1; }
           else
-            npm publish --provenance --access public
+            npm publish --provenance --access public || { echo '=== npm debug log tail ==='; tail -n 200 "$HOME/.npm/_logs/$(ls -t "$HOME/.npm/_logs" 2>/dev/null | head -1)"; exit 1; }
           fi
 
   release:

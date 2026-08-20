@@ -3,11 +3,5 @@ __pycache__/
 *.tgz
 .tmp/
 node_modules/
-
-# CCF 官方原文不进入 npm 包
-skills/oi-workbench/reference/*.txt
-skills/oi-workbench/reference/*.pdf
-skills/oi-workbench/knowledge-base/*.pdf
-**/2025-CSP-*.txt
-**/NOI_Syllabus*.pdf
-**/syllabus*.txt
+# 发布内容不包含参考题测试数据
+skills/oi-workbench/reference/**/data/

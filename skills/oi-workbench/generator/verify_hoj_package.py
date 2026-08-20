@@ -83,6 +83,9 @@ def main():
 
             print(f"[info] {jn}: {pid} {title}  type={'OI' if type_oi else 'ACM'} "
                   f"judge={jm} caseMode={jcm} samples={len(samples)}")
+            if problem.get("isFileIO"):
+                print(f"[info]       file IO: read={problem.get('ioReadFileName')} "
+                      f"write={problem.get('ioWriteFileName')}")
 
     if errors:
         for e in errors:

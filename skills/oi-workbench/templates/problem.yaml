@@ -96,13 +96,15 @@ problem_P1001.zip
 {
   "type": "oi",                    // oi|acm，默认 oi（OI 场景）
   "judgeCaseMode": "default",      // default|subtask_lowest|subtask_average
+  "io": {"type": "standard" | "file", "input": "number.in", "output": "number.out"},
+  "judge": {"mode": "traditional" | "subtask" | "acm", "spj": false, "checker": "spj.cpp", "interactor": "interactor.cpp"},
   "languages": ["C++"],
   "auth": 1,                       // 1公开 2私有 3比赛中
   "stackLimit": 512,               // MB
   "isRemoveEndBlank": true,
   "openCaseResult": true,
   "codeShare": true,
-  "fileIO": {"input": "number.in", "output": "number.out"},
+  "fileIO": {"input": "number.in", "output": "number.out"},   // 旧字段，等价 io.type=file
   "compile": {"cpp": "-O2 -std=c++14 -static"}
 }
 ```
@@ -110,6 +112,11 @@ problem_P1001.zip
 - `cases` 逐点模式：每个 case 可带 `score`（默认等分 100/n）与 `groupNum`。
 - `subtasks` 模式：自动映射为 HOJ `subtask_lowest` 或显式
   `judgeCaseMode=subtask_average`，`groupNum` 取 subtask 序号。
+- `judge.mode` 计分语义：`traditional`（逐点）/ `subtask`（捆绑，配 `subtasks`）/
+  `acm`（逐点即时，无部分分）。
+- `io.type="file"` 时运行时读/写 `io.input` / `io.output`（文件名英文小写）；
+  Hydro 打包为 config `inputFile/outputFile`；HOJ 打包为 `isFileIO/ioReadFileName/ioWriteFileName`。
+- `judge.spj` 配 `checker`（checker 源码放 `data/` 或 `checker/`；本地评测按 testlib 约定 exit 0=AC）。
 
 ## 说明
 
