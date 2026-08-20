@@ -35,6 +35,8 @@ jobs:
       - name: Publish npm package
         shell: bash
         run: |
+          # 只用 OIDC 可信发布：清掉 setup-node 可能注入的 token 文件，避免旧 NODE_AUTH_TOKEN 盖住 OIDC
+          rm -f .npmrc "$HOME/.npmrc" "$RUNNER_TEMP/.npmrc" 2>/dev/null || true
           npm config get registry
           if [ "${{ github.ref_name }}" = "dev" ]; then
             npm version prerelease --preid=beta --no-git-tag-version
