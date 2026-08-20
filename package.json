@@ -13,6 +13,7 @@
     "lib",
     "cordis.patch.yml",
     "skills",
+    "!skills/oi-workbench/reference/**/data",
     "README.md",
     "LICENSE",
     "NOTICE.md"

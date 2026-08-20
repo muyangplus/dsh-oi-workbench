@@ -2,4 +2,10 @@ __pycache__/
 *.py[cod]
 *.tgz
 .tmp/
+_tmp_*/
+public/
 node_modules/
+package-lock.json
+# 参考题测试数据不入库（由 generator/gen.py + std 现场生成；CI 先 regenerate_reference.py）
+skills/oi-workbench/reference/**/data/
+.DS_Store

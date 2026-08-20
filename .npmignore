@@ -3,3 +3,5 @@ __pycache__/
 *.tgz
 .tmp/
 node_modules/
+# 发布内容不包含参考题测试数据
+skills/oi-workbench/reference/**/data/

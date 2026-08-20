@@ -119,6 +119,8 @@ def generator_check():
 
 def reference_consistency_check():
     """参考题一致性：测试点表格点数 == data 对数 == spec cases 数（以题面为准）。"""
+    import regenerate_reference
+    regenerate_reference.ensure_all()   # 无提交 data：先按生成器+std 现场重造
     import re as _re
     for level in ("entry", "intermediate"):
         ldir = SKILL / "reference" / level
