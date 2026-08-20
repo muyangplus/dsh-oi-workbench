@@ -159,6 +159,11 @@ def reference_consistency_check():
 
 
 def main():
+    try:  # 参考题 data 不入库：任何检查前先确保现场重造（新鲜克隆/CI 无 data）
+        import regenerate_reference
+        regenerate_reference.ensure_all()
+    except Exception as e:
+        print("[warn] regenerate_reference: %s" % e)
     for name, fn in [
         ("version-consistency", version_consistency),
         ("spec-io", spec_io_check),
