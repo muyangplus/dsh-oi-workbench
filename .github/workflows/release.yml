@@ -23,7 +23,6 @@ jobs:
 
   publish:
     needs: test
-    environment: npm-publish
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,19 +31,31 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org
       - run: npm install --no-package-lock --legacy-peer-deps
+      - name: Upgrade npm for OIDC trusted publishing
+        run: npm install -g npm@11.5.1
       - name: Publish npm package
         shell: bash
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          # 只用 OIDC 可信发布：清掉 setup-node 可能注入的 token 文件，避免旧 NODE_AUTH_TOKEN 盖住 OIDC
-          rm -f .npmrc "$HOME/.npmrc" "$RUNNER_TEMP/.npmrc" 2>/dev/null || true
+          # 优先使用 NPM_TOKEN secret；没有时才回退 OIDC trusted publishing。
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > "$HOME/.npmrc"
+            PROVENANCE=""
+          else
+            # 确保空 token 环境变量不干扰 OIDC
+            unset NPM_TOKEN NODE_AUTH_TOKEN 2>/dev/null || true
+            rm -f .npmrc "$HOME/.npmrc" "$RUNNER_TEMP/.npmrc" 2>/dev/null || true
+            PROVENANCE="--provenance"
+          fi
           npm config get registry
           if [ "${{ github.ref_name }}" = "dev" ]; then
             BASE_VERSION=$(node -p "require('./package.json').version")
             TIMESTAMP=$(date +%Y%m%d%H%M%S)
             npm version "${BASE_VERSION}-beta.${TIMESTAMP}" --no-git-tag-version
-            npm publish --tag beta --provenance --access public || { echo '=== npm debug log tail ==='; tail -n 200 "$HOME/.npm/_logs/$(ls -t "$HOME/.npm/_logs" 2>/dev/null | head -1)"; exit 1; }
+            npm publish --tag beta $PROVENANCE --access public || { echo '=== npm publish failed ==='; LOG=$(ls -t "$HOME/.npm/_logs"/*.log 2>/dev/null | head -1); echo "npm debug log: $LOG"; if [ -n "$LOG" ]; then cat "$LOG"; fi; exit 1; }
           else
-            npm publish --provenance --access public || { echo '=== npm debug log tail ==='; tail -n 200 "$HOME/.npm/_logs/$(ls -t "$HOME/.npm/_logs" 2>/dev/null | head -1)"; exit 1; }
+            npm publish $PROVENANCE --access public || { echo '=== npm publish failed ==='; LOG=$(ls -t "$HOME/.npm/_logs"/*.log 2>/dev/null | head -1); echo "npm debug log: $LOG"; if [ -n "$LOG" ]; then cat "$LOG"; fi; exit 1; }
           fi
 
   release:
