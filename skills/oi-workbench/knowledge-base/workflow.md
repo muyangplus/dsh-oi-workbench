@@ -18,9 +18,9 @@ OI 出题需要做到“知识点可控”：题目考察什么、难度多高�
    级别 / 难度系数 / 主知识点 / 辅助知识点 / 超纲检查结论。
 6. **锁定后不漂移**：题解、数据分档不得引入清单外算法；部分分靠特殊性质实现。
 
-## 用户层知识库合并（批次 1）
+## 用户层知识库合并
 
-- 先并入用户层：`~/.dsh-oi-workbench/kb/<level>/<topic>.md`（工具 `ui/user_content.py kb list|show|search`），
+- 先并入用户层：`~/.dsh-oi-workbench/kb/<level>/<topic>.md`（直接维护卡片文件），
   同名 `topic` 以用户卡为准；用户可自定义新层级。
 - 再读内置速查表（`level-1-basic.md` / `level-2-intermediate.md` / `level-3-expert.md`）。
 - 超纲检查仍以目标级别上限为准（用户卡不得放开上限）。

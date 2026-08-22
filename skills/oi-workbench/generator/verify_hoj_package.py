@@ -8,12 +8,15 @@ verify_hoj_package.py —— 校验 HOJ 原生导入 zip（纯标准库）。
 
 检查:
     1. zip 内含 problem_*.json 与同名 problem_*/ 数据目录
-    2. JSON 的 samples 每个 input/output 在对应目录中存在
-    3. OI 题目 samples 分值之和为 100
-    4. judgeMode / judgeCaseMode 合法
-    5. spj/interactive 时需要 spjCode 或 spjLanguage 说明
+    2. problem_*/ 内含 info（官方导出格式必需）
+    3. info 的 testCases 与 JSON samples 一致（数量、文件名、outputMd5）
+    4. JSON 的 samples 每个 input/output 在对应目录中存在
+    5. OI 题目 samples 分值之和为 100
+    6. judgeMode / judgeCaseMode 合法
+    7. problem 关键字段（isGroup/isUploadCase）与 hint 非空
 """
 
+import hashlib
 import json
 import re
 import sys
@@ -21,6 +24,11 @@ import zipfile
 
 VALID_JUDGE_MODES = {"default", "spj", "interactive"}
 VALID_CASE_MODES = {"default", "subtask_lowest", "subtask_average"}
+REQUIRED_PROBLEM_KEYS = ["isGroup", "isUploadCase", "hint", "problemId", "title"]
+
+
+def md5_bytes(b):
+    return hashlib.md5(b).hexdigest()
 
 
 def main():
@@ -38,11 +46,20 @@ def main():
         for jn in sorted(json_names):
             base = jn[:-5]          # 去掉 .json
             folder = base + "/"
+            info_name = f"{folder}info"
+            if info_name not in names:
+                errors.append(f"{jn}: 缺少必需文件 {info_name}（官方导出格式包含 info）")
+                continue
             try:
                 payload = json.loads(z.read(jn).decode("utf-8"))
             except Exception as e:
                 errors.append(f"{jn}: JSON 解析失败: {e}")
                 continue
+            try:
+                info = json.loads(z.read(info_name).decode("utf-8"))
+            except Exception as e:
+                errors.append(f"{info_name}: JSON 解析失败: {e}")
+                info = {}
 
             problem = payload.get("problem") or {}
             pid = problem.get("problemId") or base
@@ -54,6 +71,12 @@ def main():
                 errors.append(f"{jn}: judgeMode 非法: {jm}")
             if jcm not in VALID_CASE_MODES:
                 errors.append(f"{jn}: judgeCaseMode 非法: {jcm}")
+
+            for key in ["isGroup", "isUploadCase"]:
+                if key not in problem:
+                    errors.append(f"{jn}: problem 缺少字段 {key}")
+            if not str(problem.get("hint") or "").strip():
+                warnings.append(f"{jn}: problem.hint 为空（建议放入数据范围）")
 
             samples = payload.get("samples") or []
             if not samples:
@@ -77,12 +100,29 @@ def main():
             if type_oi and score_seen and total != 100:
                 errors.append(f"{jn}: OI 总分 = {total}（应为 100）：{pid} {title}")
 
+            # info 校验
+            tc_list = info.get("testCases") or []
+            if info.get("testCasesSize") is not None and int(info["testCasesSize"]) != len(tc_list):
+                errors.append(f"{info_name}: testCasesSize({info['testCasesSize']}) != testCases({len(tc_list)})")
+            if tc_list and samples and len(tc_list) != len(samples):
+                errors.append(f"{info_name}: testCases({len(tc_list)}) != samples({len(samples)})")
+            for tc in tc_list:
+                inp, out = tc.get("inputName"), tc.get("outputName")
+                if not inp or not out:
+                    errors.append(f"{info_name}: testCase 缺少 inputName/outputName: {tc}")
+                    continue
+                if f"{folder}{out}" in names:
+                    real = md5_bytes(z.read(f"{folder}{out}"))
+                    exp = tc.get("outputMd5")
+                    if exp and real != exp:
+                        errors.append(f"{info_name}: {out} md5 不匹配（info={exp} 实际={real}）")
+
             if jm in ("spj", "interactive"):
                 if not problem.get("spjCode") and not payload.get("judgeExtraFile"):
                     warnings.append(f"{jn}: {jm} 未提供 spjCode/judgeExtraFile，需在 HOJ 后台补充")
 
             print(f"[info] {jn}: {pid} {title}  type={'OI' if type_oi else 'ACM'} "
-                  f"judge={jm} caseMode={jcm} samples={len(samples)}")
+                  f"judge={jm} caseMode={jcm} samples={len(samples)} infoCases={len(tc_list)}")
             if problem.get("isFileIO"):
                 print(f"[info]       file IO: read={problem.get('ioReadFileName')} "
                       f"write={problem.get('ioWriteFileName')}")
@@ -93,7 +133,7 @@ def main():
         sys.exit(1)
     for w in warnings:
         print(f"[warn] {w}")
-    print(f"[ok] {zpath} 校验通过（HOJ 导入布局）")
+    print(f"[ok] {zpath} 校验通过（HOJ 官方导出布局，含 info）")
 
 
 if __name__ == "__main__":

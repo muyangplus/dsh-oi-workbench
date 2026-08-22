@@ -7,10 +7,4 @@
       config:
         providerName: oi-workbench-plugin
         includeDefaultRoots: false
-        bundledSkillDir: !!js process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('dsh-oi-workbench/package.json')), 'skills')
-- insert:
-    - id: dsh-commands
-      name: '@etby-studio/dsh-commands'
-      config:
-        commandDirs:
-          - !!js process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('dsh-oi-workbench/package.json')), 'skills', 'oi-workbench', 'commands', 'register')
+        bundledSkillDir: !!js process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('@muyangplus/dsh-oi-workbench/package.json')), 'skills')

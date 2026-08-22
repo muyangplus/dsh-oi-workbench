@@ -1,7 +1,7 @@
 # 用户自定义内容规范（User Content）
 
 > 批次 1（v0.1.1）产物。定义用户如何自行添加 **reference / knowledge-base**，
-> 以及技能如何使用这些内容。实现入口：`ui/user_content.py`（仅标准库）。
+> 以及技能如何使用这些内容。实现方式：直接维护 `~/.dsh-oi-workbench/` 下的目录与文件。
 
 ## 1. 目标
 
@@ -56,7 +56,7 @@
 frontmatter 支持：`key: value`、`key: [a, b]`、`key:` + `- item` 列表、
 `key: |` 多行块。工具用轻量解析器读取，非 YAML 全集，请按模板格式书写。
 
-### 3.2 增删改查（`/oiwb kb` 或 `python ui/user_content.py kb ...`）
+### 3.2 增删改查（直接维护文件）
 
 | 命令 | 作用 |
 |---|---|
@@ -81,7 +81,7 @@ frontmatter 支持：`key: value`、`key: [a, b]`、`key:` + `- item` 列表、
 
 - 结构完全沿用内置 `reference/` 标准：`problem.md`、`spec.json`、`data/`（≥1 对 in/out）、
   `sample/`、`std/std.cpp` 必选；`brute.cpp`、`generator/gen.py` 建议。
-- 增删改查：`/oiwb ref` 或 `python ui/user_content.py ref ...`：
+- 增删改查：直接维护 `~/.dsh-oi-workbench/reference/...`：
 
 | 命令 | 作用 |
 |---|---|

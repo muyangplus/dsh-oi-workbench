@@ -30,9 +30,11 @@ IO 与评测模式从 spec.json 读取（约定见 spec_support.py / templates/p
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
+import threading
 import tempfile
 import time
 
@@ -127,8 +129,11 @@ def get_score_map(pdir, cases_count):
     return scores
 
 
-def compile_source(source, out_exe, compile_flags):
-    cmd = ["g++"] + compile_flags.split() + [source, "-o", out_exe]
+def compile_source(source, out_exe, compile_flags, include_dirs=None):
+    cmd = ["g++"] + compile_flags.split()
+    for d in include_dirs or []:
+        cmd.append("-I" + d)
+    cmd += [source, "-o", out_exe]
     print("[compile] %s" % " ".join(cmd))
     return subprocess.run(cmd, capture_output=True, text=True)
 
@@ -180,6 +185,87 @@ def run_checker(checker_exe, in_path, actual_path, exp_path, timeout):
     return cp, elapsed_ms
 
 
+def _pump(src, dst):
+    """把 src 管道的数据搬运到 dst 管道，直到 EOF。
+
+    使用 os.read 而非 BufferedReader.read(n)：Windows 管道在未满 n 字节时
+    可能阻塞到 EOF，导致交互题死锁；os.read 能立即返回已到达的字节。
+    """
+    try:
+        fd = src.fileno()
+        while True:
+            data = os.read(fd, 4096)
+            if not data:
+                break
+            dst.write(data)
+            dst.flush()
+    except Exception:
+        pass
+    finally:
+        try:
+            dst.close()
+        except Exception:
+            pass
+
+
+def run_interactive(exe, interactor_exe, in_path, exp_path, output_path, workdir, timeout):
+    """运行交互题：solution <-> interactor 双向管道；interactor 退出码 0 = AC。
+
+    testlib interactor 参数约定：<input-file> <output-file> <answer-file>，
+    output-file 为 interactor 写参与者输出的文件。
+    使用两个泵线程中转 solution 与 interactor 之间的数据，避免管道 EOF 死锁。
+    """
+    st = time.perf_counter()
+    try:
+        inter = subprocess.Popen(
+            [interactor_exe, in_path, output_path, exp_path],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        sol = subprocess.Popen(
+            [exe], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, cwd=workdir)
+
+        t1 = threading.Thread(target=_pump, args=(sol.stdout, inter.stdin), daemon=True)
+        t2 = threading.Thread(target=_pump, args=(inter.stdout, sol.stdin), daemon=True)
+        t1.start()
+        t2.start()
+
+        try:
+            sol.wait(timeout=timeout)
+            inter.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            sol.kill()
+            inter.kill()
+            sol.wait()
+            inter.wait()
+            return {"timeout": True, "elapsed_ms": timeout * 1000}
+
+        t1.join(timeout=1)
+        t2.join(timeout=1)
+        elapsed_ms = (time.perf_counter() - st) * 1000
+
+        def read_err(pipe):
+            try:
+                if pipe is None:
+                    return ""
+                data = pipe.read()
+                return data.decode("utf-8", "replace")
+            except Exception:
+                return ""
+
+        sol_err = read_err(sol.stderr)
+        inter_err = read_err(inter.stderr)
+        msg = (inter_err + sol_err).strip().replace("\n", " ")[:200]
+        return {
+            "timeout": False,
+            "elapsed_ms": elapsed_ms,
+            "sol_rc": sol.returncode,
+            "inter_rc": inter.returncode,
+            "inter_msg": msg,
+        }
+    except Exception as e:
+        return {"timeout": False, "elapsed_ms": 0, "error": str(e)}
+
+
 def main():
     ap = argparse.ArgumentParser(description="本地 OI 评测器（standard/file IO，spj，三态计分）")
     ap.add_argument("problem_dir")
@@ -188,6 +274,8 @@ def main():
     ap.add_argument("--time", type=int, default=None, help="单点时限 ms，默认取 spec.json time")
     ap.add_argument("--memory", type=int, default=None, help="内存限制 MB，默认取 spec.json memory")
     ap.add_argument("--file-io", nargs=2, metavar=("READ", "WRITE"), default=None)
+    ap.add_argument("--testlib-dir", default=None,
+                    help="testlib.h 所在目录（默认 generator/testlib）")
     args = ap.parse_args()
 
     pdir = os.path.normpath(args.problem_dir)
@@ -245,20 +333,46 @@ def main():
         except Exception:
             pass
 
+        testlib_dir = args.testlib_dir or os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "testlib")
+        testlib_h = os.path.join(testlib_dir, "testlib.h")
+
+        def ensure_testlib(src):
+            if not os.path.exists(testlib_h):
+                with open(src, encoding="utf-8", errors="ignore") as f:
+                    text = f.read()
+                if re.search(r'#\s*include\s*[<"]testlib\.h[>"]', text):
+                    sys.exit(
+                        "checker/interactor 使用 testlib.h，但未找到 %s；"
+                        "请按 generator/testlib/README.md 放置官方 testlib.h（MIT）" % testlib_h)
+
         checker_exe = None
+        interactor_exe = None
         if judge["spj"]:
+            interactor = judge.get("interactor")
             checker = judge.get("checker")
-            if not checker:
-                sys.exit("spj=true 但 spec.judge 缺 checker 文件名")
-            checker_src = find_checker_source(pdir, checker)
-            if not checker_src:
-                sys.exit("spj 未找到 checker 源码: %s（期望在 data/ 或 checker/）" % checker)
-            checker_exe = os.path.join(tmp, "checker.exe" if os.name == "nt" else "checker")
-            ccp = compile_source(checker_src, checker_exe, args.compile)
-            if ccp.returncode != 0:
-                print(ccp.stdout)
-                print(ccp.stderr)
-                sys.exit("checker 编译失败")
+            if interactor:
+                interactor_src = find_checker_source(pdir, interactor)
+                if not interactor_src:
+                    sys.exit("交互题未找到 interactor 源码: %s（期望在 data/ 或 checker/）" % interactor)
+                ensure_testlib(interactor_src)
+                interactor_exe = os.path.join(tmp, "interactor.exe" if os.name == "nt" else "interactor")
+                icp = compile_source(interactor_src, interactor_exe, args.compile, [testlib_dir])
+                if icp.returncode != 0:
+                    print(icp.stdout)
+                    print(icp.stderr)
+                    sys.exit("interactor 编译失败")
+            if checker:
+                checker_src = find_checker_source(pdir, checker)
+                if not checker_src:
+                    sys.exit("spj 未找到 checker 源码: %s（期望在 data/ 或 checker/）" % checker)
+                ensure_testlib(checker_src)
+                checker_exe = os.path.join(tmp, "checker.exe" if os.name == "nt" else "checker")
+                ccp = compile_source(checker_src, checker_exe, args.compile, [testlib_dir])
+                if ccp.returncode != 0:
+                    print(ccp.stdout)
+                    print(ccp.stderr)
+                    sys.exit("checker 编译失败")
 
         score_map = get_score_map(pdir, len(pairs))
         subtasks = spec.get("subtasks")
@@ -292,6 +406,26 @@ def main():
                 elif elapsed_ms > time_ms:
                     verdict = "TLE"
                     detail = "%.1fms > %dms" % (elapsed_ms, time_ms)
+                elif interactor_exe:
+                    ir = run_interactive(
+                        exe, interactor_exe, in_path, exp_path,
+                        os.path.join(os.path.dirname(actual_path), "participant.out"),
+                        os.path.dirname(actual_path), timeout)
+                    if ir.get("timeout"):
+                        verdict = "TLE"
+                        detail = ">= %.0fms" % ir["elapsed_ms"]
+                    elif ir.get("error"):
+                        verdict = "RE"
+                        detail = ir["error"]
+                    elif ir["sol_rc"] != 0:
+                        verdict = "RE"
+                        detail = "solution exit=%d%s" % (ir["sol_rc"], (" " + ir["inter_msg"]) if ir["inter_msg"] else "")
+                    elif ir["inter_rc"] == 0:
+                        verdict = "AC"
+                        detail = "%.1fms%s" % (ir["elapsed_ms"], (" " + ir["inter_msg"]) if ir["inter_msg"] else "")
+                    else:
+                        verdict = "WA"
+                        detail = "%.1fms%s" % (ir["elapsed_ms"], (" " + ir["inter_msg"]) if ir["inter_msg"] else "")
                 elif checker_exe:
                     ck, ck_ms = run_checker(checker_exe, in_path, actual_path, exp_path, timeout)
                     if ck is None:

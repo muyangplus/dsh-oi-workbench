@@ -1,6 +1,6 @@
 ---
 name: oi-workbench
-description: 当用户需要创作 OI 风格竞赛题目（入门级/提高级/专家级）、设计测试点表格与特殊性质、针对性构造测试数据、制作大样例附件、生成题目变式、打包 Hydro/HOJ 兼容题目包、进行本地评测、或把题目/比赛/用户/团队发布到 Hydro 与 HOJ 时调用。覆盖知识点锁定、分数表设计、数据构造、评测验证、打包、双 OJ 管理与 UI 管理的完整流程。
+description: 当用户需要创作 OI 风格竞赛题目（入门级/提高级/专家级）、设计测试点表格与特殊性质、针对性构造测试数据、制作大样例附件、生成题目变式、打包 Hydro/HOJ 兼容题目包、进行本地评测、或把题目/比赛/用户/团队发布到 Hydro 与 HOJ 时调用。覆盖知识点锁定、分数表设计、数据构造、评测验证、打包、双 OJ 管理的完整流程。
 ---
 
 # 角色
@@ -8,15 +8,13 @@ description: 当用户需要创作 OI 风格竞赛题目（入门级/提高级/�
 作为严谨的 OI 出题人执行任务。本技能资源目录下：
 `knowledge-base/`（参考  大纲整理的速查，非 官方原文）、`specs/`（规范）、`templates/`（模板）、
 `generator/`（打包器 + 本地评测）、`hydro-bridge/`（Hydro 对接）、
-`hoj-bridge/`（HOJ 对接）、`ui/`（Python 外部管理 UI）、
-`commands/`（斜杠指令说明）、`reference/`（自出原创参考题）。
+`hoj-bridge/`（HOJ 对接）、`reference/`（自出原创参考题）。
 主动读写文件、编译、运行和修复；不要只给用户命令让其代为执行。
 
-# 0. 全国统一评测规范（OI 2025 后固定）
+# 0. 评测规范
 
 - **编译指令（C++）**：`-O2 -std=c++14 -static`
-- **评测机基准**：Intel Core Ultra 9 285K CPU @ 3.70 GHz（关闭睿频与能效核），内存 96 GB；
-  所有时限均以此配置为准，本地 Windows 计时只作参考。
+- **时限口径**：时限以目标评测机（Linux / Hydro / HOJ）为准，本机 Windows 计时仅作参考。
 - 输出比较：全文比较（过滤行末空格及文末换行）。
 - 源文件 ≤ 100 KiB；`main` 返回 `int` 且正常结束返回 0；栈空间与题目内存限制一致；
   禁止源码修改编译器参数或使用系统结构相关指令。
@@ -24,12 +22,14 @@ description: 当用户需要创作 OI 风格竞赛题目（入门级/提高级/�
 - 输入输出：默认 stdin/stdout；`spec.json` 里 `io.type=file` 时，运行时读/写 `io.input/io.output`
   （文件名一律英文小写，约定见 `templates/problem.yaml`）。
 - 评测模式（`spec.json` 的 `judge.mode`）：`traditional` 逐点 / `subtask` 捆绑 / `acm` 逐点即时；
-  特殊评测 `judge.spj` 配 `checker`，checker 源码放 `data/` 或 `checker/`。
+  特殊评测 `judge.spj` 配 `checker`，checker 源码放 `data/` 或 `checker/`；
+  交互题配 `judge.interactor`（interactor 源码同样放 `data/` 或 `checker/`）。
+- `generator/local_judge.py` 支持 testlib checker 与交互题 interactor 本地真机评测：
+  自动加 `-I generator/testlib`（内置 testlib.h v0.9.41，MIT，见 `generator/testlib/README.md`）。
 
 # 1. 出题前置（每道题必做）
 
-1. **锁定知识点**：先并入**用户层知识库**（`~/.dsh-oi-workbench/kb/`，用
-   `ui/user_content.py kb list|show|search` 检索；同名 `topic` 以用户卡为准，可自定义层级）；
+1. **锁定知识点**：先并入**用户层知识库**（`~/.dsh-oi-workbench/kb/`，直接维护卡片文件；同名 `topic` 以用户卡为准，可自定义层级）；
    再读取 `knowledge-base/level-1-basic.md` / `level-2-intermediate.md` /
    `level-3-expert.md` 中对应级别清单，
    按 `knowledge-base/workflow.md` 确定：目标级别、难度系数区间、
@@ -37,7 +37,7 @@ description: 当用户需要创作 OI 风格竞赛题目（入门级/提高级/�
 2. **填母题卡**：用 `templates/variation.md` 的母题卡模板记录。
 
 > 用户自定义知识库 / 参考题的规范见 `specs/user-content.md`（内置 + 用户两层合并）；
-> 增删改查走 `ui/user_content.py` 与 `/oiwb kb`、`/oiwb ref` 命令（见 `commands/kb.md`）。
+> 用户层内容直接维护 `~/.dsh-oi-workbench/` 下对应目录（无 CLI / 斜杠命令）。
 
 # 2. 测试点与分数表设计（OI 评分方式）
 
@@ -53,6 +53,8 @@ description: 当用户需要创作 OI 风格竞赛题目（入门级/提高级/�
    - **HOJ**：由 `generator/build_hoj_package.py` 转成 `judgeCaseMode=default /
      subtask_lowest / subtask_average`，每个测试点带 `score`；同组设置
      `groupNum`。见 `templates/problem.yaml` 的 HOJ 小节。
+   - HOJ 包的「数据范围」由打包器自动放入 `problem.hint`（提示区），
+     也可在 `spec.json` 用 `hint` 覆盖；不要在 `hint` 里放做法。
 
 # 3. 代码矩阵（每道题必写）
 
@@ -90,11 +92,32 @@ description: 当用户需要创作 OI 风格竞赛题目（入门级/提高级/�
 
 样例机制：
 - 样例 1-2：题面内联（小规模，覆盖不同分支）。
-- **大样例不进题面**：放 `large_sample/`，打成 zip 后放入 `additional_file/`
-  （Hydro 打包进 `additional_file/`，导入为附加文件，不参与评测）；
-  题面引用格式：`（见题目附件 [xxx.zip](file://xxx.zip)，该样例满足测试点 X~Y 的约束。）`
+- **大样例不进题面**：随完整样例 zip（平铺 `1.in/1.out`、`2.in/2.out`、`3.in/3.out`）
+  放入 `additional_file/<英文题名>_samples.zip`（Hydro 导入为附加文件，不参与评测）；
+  OJ 题面引用格式：`（见题目附件 [xxx_samples.zip](file://xxx_samples.zip)，其中样例 3 满足测试点 X, Y, Z 的约束。）`
 - 大样例由生成器产出（满足对应档约束），答案由 std 生成并核验。
 - HOJ 无 `file://` 附件机制：导入后需在 HOJ 后台把大样例放到可下载资源或说明中。
+
+复杂背景故事/整卷交付能力（实战沉淀，规范见 `specs/story-statement.md`）：
+- 需要“大量背景故事 + 无效信息”包装时，正式定义段必须完整精确复述题意，
+  【说明与澄清】只解释有歧义的概念（子序列、连续子段、路径含端点、是否允许重复等），
+  **禁止**提示性内容（答案量级/64 位/答案至少为 1/只要求输出人数等）。
+- 样例顺序固定：样例解释 1 紧跟样例 1 输出之后；样例 2 输出后接【样例 3】。
+- 完整样例 zip 平铺：`additional_file/<英文题名>_samples.zip` 内含 `1.in/1.out`、
+  `2.in/2.out`、`3.in/3.out`（无大/小样例子目录、无 readme）；样例 3 为大样例。
+- 整卷 PDF：`python generator/build_statement_pdf.py`，组织方式参考官方 CSP 试卷
+  （封面信息表 + 注意事项 + 每题分页页眉页脚 + 样例行号 + 数据范围表）。
+- Lemon 评测机比赛数据：`python generator/export_lemon.py`，输出
+  `<contest>.cdf`（LemonLime 比赛文件）、`data/<英文题名>/<英文题名><编号>.in/.out`
+  与 `source/std/`（std 选手）。
+- 故事设计：`python generator/story_card.py`（生成故事卡 + 可直接粘贴的背景故事，
+  规范 `specs/story-design.md`，模板 `templates/story-card.md`）。
+- 连续剧情/连载：`story.yaml` 剧本 + `python generator/story_continuity.py`
+  连续性检查（规范 `specs/story-serial.md`，模板 `templates/story.yaml`）。
+- 从描述一键出整场：`python generator/generate_contest.py --manifest contest.json`
+  （自动应用 story-card、生成并检查 story.yaml，再调 build_contest 产出全套交付物）。
+- spj/交互题样例验证：`python generator/validate_spj.py --problem <题目目录>`
+  （标程应 100/100，故意错误程序应被击杀）。
 
 # 6. 变式
 
@@ -103,6 +126,10 @@ description: 当用户需要创作 OI 风格竞赛题目（入门级/提高级/�
 
 # 7. 打包
 
+0. **生成题目文件后先盲审**：
+   `python generator/blind_review.py --problem <题目目录>`
+   审读题面/题解/spec 是否存在脱离上下文显得奇怪的表述（括号里带批次数字的注解、
+   版本号相关内部措辞、内部术语泄漏、占位残留等），有问题先修再打包。
 1. **Hydro 原生包**：
    `python generator/build_package.py <题目目录> --out <ID>.zip`
    校验：`python generator/verify_package.py <ID>.zip`
@@ -112,10 +139,29 @@ description: 当用户需要创作 OI 风格竞赛题目（入门级/提高级/�
 3. 包内布局：
    - Hydro：`problem.yaml` + `problem.md` + `testdata/`（config.yaml + 数据）
      + `data/sample/` + `additional_file/` + `std/` + `solution/`
-   - HOJ：`problem_<pid>.json` + `problem_<pid>/测试数据`
+   - HOJ：`problem_<pid>.json` + `problem_<pid>/测试数据` + `problem_<pid>/info`
+     （`info` 为官方导出必需：mode/judgeCaseMode/version/testCasesSize/testCases，
+     每个测试点含 outputMd5/outputSize/allStrippedOutputMd5/EOFStrippedOutputMd5）
 4. 校验必须全绿。
 
+5. 完整样例与整卷交付（可选但推荐）：
+   - `python generator/package_samples.py --problems <题目录>... --story-dir <故事题面目录> --combined <汇总.zip>`
+     生成平铺 1/2/3 完整样例 zip 并更新题面引用；
+   - `python generator/build_statement_pdf.py ... --problems <题目录>... --out paper.pdf`
+     生成官方风格整卷 PDF；
+   - `python generator/export_lemon.py --contest <比赛名> --problems <题目录>... --out <目录>`
+     导出 Lemon 评测机比赛数据（含 std 选手）。
+   - `python generator/build_contest.py --contest <比赛名> --problems <题目录>...`
+     一键产出：完整样例 zip + 整卷 PDF + Lemon（含 .cdf）+ 每题 Hydro/HOJ 包。
+   - `python generator/generate_contest.py --manifest <contest.json>`
+     从比赛描述一键完成故事应用 + story.yaml 连续性 + 上述全部交付。
+
 # 8. 发布到 OJ
+
+0. **代码发布前盲审**：
+   `python generator/blind_review.py --release`
+   扫仓库用户面向文本，清除“括号里带批次数字的注解”“版本号相关内部措辞”等
+   无上下文表述；问题清零后才进入发布流程。
 
 ## Hydro
 
@@ -134,44 +180,10 @@ description: 当用户需要创作 OI 风格竞赛题目（入门级/提高级/�
    子命令覆盖：题目、比赛、训练、用户、团队、公告、标签、重判、系统信息。
 3. 发布后告知用户到网页核对：测试点/分数表、特殊/交互程序、file IO、题面渲染、隐藏状态。
 
-# 9. UI 管理功能
+# 9. 管理能力（规划）
 
-## 9.1 斜杠指令（Slash Commands）
-
-采用**通用根指令 + 子命令**设计，避免把指令绑定死到单个 OJ，方便后续扩展 Hydro / 其他 OJ。
-
-| 指令 | 执行动作 |
-|---|---|
-| `/oiwb` 或 `/oj` | 打开 OI Workbench 默认管理面板 |
-| `/oiwb panel` | 启动 Python 外部 UI（`python ui/hoj_ui.py`）并打开 HOJ 管理页 |
-| `/oiwb hoj problems` | HOJ 题目列表 |
-| `/oiwb hoj contests` | HOJ 比赛列表 |
-| `/oiwb hoj publish <题目目录>` | 发布题目到 HOJ |
-| `/oiwb hoj rejudge <submitId>` | 重判指定 HOJ 提交 |
-| `/hoj` 或 `/hoj-panel` | `/oiwb panel` 的别名（启动 Python 外部 UI） |
-| `/hoj help` | 显示 HOJ 指令列表（兼容旧用法） |
-
-> 这些是技能级斜杠指令：用户输入 `/oiwb ...` / `/oj ...` / `/hoj ...` 时，按本表解析并执行。
-> 后续新增 Hydro 等平台时，只需增加 `/oiwb hydro ...` 子命令，不需要改掉 `/hoj`。
-
-## 9.2 外部 Python UI（推荐）
-
-不再使用 DSH 内部 `render_ui`，改为启动 **Python 外部管理 UI**：
-
-```bash
-python ui/hoj_ui.py --host 0.0.0.0 --port 6163 --base https://hoj.example.com
-```
-
-- 浏览器访问：`http://localhost:6163/`
-- 手机/局域网访问：`http://<本机IP>:6163/`
-- UI 页面：`ui/hoj-admin.html`
-- Python 服务端代理 HOJ API，并保存 HOJ Cookie，避免 `file://` 与 CORS 问题
-- 配置和 Cookie 保存到 `~/.dsh-oi-workbench/`
-
-## 9.3 旧版浏览器单页
-
-`ui/hoj-admin.html` 也可单独用浏览器打开，但**必须通过 `python ui/hoj_ui.py` 提供 HTTP 服务**，
-不要直接用 `file://` 打开。
+Python 外部 UI 与系统斜杠命令已移除；
+后续由 DeepSeek Harness 原生设置页/面板提供管理能力。
 
 # 10. 完成标准
 
@@ -180,6 +192,7 @@ python ui/hoj_ui.py --host 0.0.0.0 --port 6163 --base https://hoj.example.com
 - 击杀矩阵全绿：wrong 全部按预期击杀，std/brute 对拍无分歧；
 - 题面零做法提示；大样例以附件 zip 提供并在题面引用；
 - 题目包 `verify_package.py` / `verify_hoj_package.py` 全绿；
+- 完整样例 zip 平铺 1/2/3 并提供（如需要）；PDF 整卷 / Lemon 数据已导出（如需要）；
 - （有实例时）题目已发布到 Hydro/HOJ，比赛已创建，链接已给出。
 
 # 11. 安全与边界

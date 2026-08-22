@@ -10,8 +10,7 @@ ci_quality.py —— CI 代码质量检查（仅 Python 标准库，无需 g++�
      checker）、mode（显式 / type=acm / subtasks / 缺省）解析断言；
   3. build_package 的 config.yaml 映射（纯函数）：file IO 输出 inputFile/outputFile；
      spj 输出 checker/testlib；subtasks 输出 subtasks；
-  4. ui/user_content.py：--help、kb validate（空数据根）、ref validate 一个内置参考题；
-  5. generator 打包器 --check 一个内置参考题（build_package / build_hoj_package）。
+  4. generator 打包器 --check 一个内置参考题（build_package / build_hoj_package）。
 
 退出码 0 = 全绿。
 """
@@ -93,22 +92,6 @@ def config_mapping_check():
     assert "subtasks:" in cfg3, cfg3
 
 
-def user_content_check():
-    ucp = SKILL / "ui" / "user_content.py"
-    env = dict(os.environ)
-    env.setdefault("PYTHONUTF8", "1")
-    r = subprocess.run([sys.executable, str(ucp), "--help"], capture_output=True, text=True, env=env)
-    assert r.returncode == 0, r.stdout + r.stderr
-    with tempfile.TemporaryDirectory(prefix="oiwb-ci-") as home:
-        r2 = subprocess.run([sys.executable, str(ucp), "--home", home, "kb", "validate"],
-                            capture_output=True, text=True, env=env)
-        assert r2.returncode == 0, r2.stdout + r2.stderr
-        ref = SKILL / "reference" / "entry" / "max-number"
-        r3 = subprocess.run([sys.executable, str(ucp), "--home", home, "ref", "validate", str(ref)],
-                            capture_output=True, text=True, env=env)
-        assert r3.returncode == 0, r3.stdout + r3.stderr
-
-
 def generator_check():
     ref = SKILL / "reference" / "entry" / "max-number"
     for script in ("build_package.py", "build_hoj_package.py"):
@@ -170,7 +153,6 @@ def main():
         ("spec-judge", spec_judge_check),
         ("spec-mode", spec_mode_check),
         ("config-mapping", config_mapping_check),
-        ("user-content-cli", user_content_check),
         ("generator-check", generator_check),
         ("reference-consistency", reference_consistency_check),
     ]:

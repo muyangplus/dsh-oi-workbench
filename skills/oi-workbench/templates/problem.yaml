@@ -116,7 +116,11 @@ problem_P1001.zip
   `acm`（逐点即时，无部分分）。
 - `io.type="file"` 时运行时读/写 `io.input` / `io.output`（文件名英文小写）；
   Hydro 打包为 config `inputFile/outputFile`；HOJ 打包为 `isFileIO/ioReadFileName/ioWriteFileName`。
-- `judge.spj` 配 `checker`（checker 源码放 `data/` 或 `checker/`；本地评测按 testlib 约定 exit 0=AC）。
+- `judge.spj` 配 `checker`（checker 源码放 `data/` 或 `checker/`；本地评测按 testlib 约定 exit 0=AC）；
+  交互题配 `judge.interactor`（interactor 源码同样放 `data/` 或 `checker/`，
+  本地评测用 `generator/local_judge.py` 双向管道运行，interactor 退出码 0=AC）。
+- 本地编译 checker/interactor 自动加 `-I generator/testlib`（内置 testlib.h v0.9.41，MIT，
+  见 `generator/testlib/README.md`）；远程 OJ 自带 testlib，无需随包上传。
 
 ## 说明
 
