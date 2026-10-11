@@ -1,0 +1,25 @@
+# 连续剧情 / 连载剧本模板（story.yaml）
+# 规范见 specs/story-serial.md；用 generator/story_continuity.py 检查。
+
+title: 银河远征第一场
+previous: ""            # 可选：上一场剧本标题（跨场检查用）
+
+episodes:
+  - id: 1
+    title: 选拔
+    introduced: [队长, 阿强, 报名处, 旧口哨]
+    characters: [队长, 阿强]
+    locations: [报名处]
+    props: [旧口哨]
+    plot: 登山协会选拔队员
+    unresolved: [牛肉面之谜]
+
+  - id: 2
+    title: 补给
+    introduced: [老马, 首都, 铃铛]
+    characters: [老马, 队长]
+    locations: [首都]
+    props: [铃铛]
+    plot: 星际物流公司安排运输路线
+    uses_unresolved: [牛肉面之谜]
+    resolved: [牛肉面之谜]

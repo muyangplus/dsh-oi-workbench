@@ -45,5 +45,5 @@ jobs:
       - name: npm pack (package integrity)
         run: |
           npm pack --dry-run 2>&1 | tee /tmp/npm-pack.txt
-          grep -q "skills/oi-workbench/ui/user_content.py" /tmp/npm-pack.txt
+          grep -q "skills/oi-workbench/generator/build_contest.py" /tmp/npm-pack.txt
           grep -q "skills/oi-workbench/generator/spec_support.py" /tmp/npm-pack.txt

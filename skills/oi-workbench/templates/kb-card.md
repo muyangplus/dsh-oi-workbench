@@ -1,7 +1,7 @@
 # 用户知识库速查卡片（模板）
 
 > 把本模板复制到 `~/.dsh-oi-workbench/kb/<level-dir>/<topic>.md` 使用，
-> 或直接运行 `python ui/user_content.py kb add --topic ... --level ...` 生成。
+> 或按 `specs/user-content.md` 直接维护 `~/.dsh-oi-workbench/kb/` 下的卡片文件。
 > 规范见 `specs/user-content.md`；层级目录映射：入门级→level-1-basic、
 > 提高级→level-2-intermediate、专家级→level-3-expert、自定义层级→ASCII slug。
 

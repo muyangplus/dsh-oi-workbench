@@ -28,9 +28,9 @@
 ## 样例
 
 - 样例 1/2：题面内联（小样例，覆盖不同规模）
-- 样例 3（大样例）：`large_sample/sample3.{in,ans}`（n=1e5 随机，满足 22~25 档约束），
-  打包为 `additional_file/sample3.zip`，题面以 `[sample3.zip](file://sample3.zip)` 引用；
-  **不进入评测数据**
+- 样例 3（大样例）：`data/6`（满足测试点 6~8 档约束），
+  完整样例打包为 `additional_file/demo_samples.zip`（平铺 `1.in/1.out`、`2.in/2.out`、`3.in/3.out`），
+  题面以 `[demo_samples.zip](file://demo_samples.zip)` 引用；**不进入评测数据**
 
 ## 数据构成（25 点，每档 = 边界/极限/定向击杀/随机）
 
@@ -57,10 +57,10 @@
 
 - `generator/build_package.py` 生成 `P1001-果园分装.zip`（61 项）：
   problem.yaml + problem.md + testdata/（config.yaml 25 cases 等分 + 数据）
-  + data/sample + std + additional_file/sample3.zip
+  + data/sample + std + additional_file/demo_samples.zip
 - `generator/verify_package.py` 校验通过（测试点/附件齐全）
-- Hydro 导入后：25 测试点自动等分 4 分/点；sample3.zip 为附加文件可下载
+- Hydro 导入后：25 测试点自动等分 4 分/点；demo_samples.zip 为附加文件可下载
 
 ## 结论
 
-可交付。分档灵活（8 档含 2 个特殊性质），大样例附件引用，无任何做法提示。
+可交付。分档灵活（8 档含 2 个特殊性质），完整样例附件引用（平铺 1/2/3），无任何做法提示。

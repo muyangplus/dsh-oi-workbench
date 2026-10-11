@@ -9,8 +9,7 @@
 
 ## 依赖情况
 
-- npm 运行时依赖：`@etby-studio/dsh-commands`（MIT），用于系统斜杠命令注册。
-  - 传递依赖包括 `chokidar`、`yaml`、`@deepseek-ai/schemastery` 等，均采用 MIT / ISC / BSD 类宽松开源协议。
+- npm：本插件为纯 skill 插件，无第三方 npm 运行时依赖。
 - Python 侧仅使用 Python 标准库，无第三方 Python 包。
 
 ## 说明

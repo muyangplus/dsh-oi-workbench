@@ -1,16 +1,13 @@
-# Opt-in OI Workbench filesystem Skill provider for DeepSeek Harness.
-# Resolves the packaged Skill root from the installed npm identity anchored at
-# the DSH profile (Loader baseUrl), never as a path concatenated onto baseUrl.
+# Opt-in OI Workbench filesystem Skill provider + DSH 原生管理面板入口。
+# 1) Skill provider：把包内 skills/oi-workbench/ 暴露为可加载 skill。
+# 2) 插件本体：注册 host API 与 client 设置页。
 - insert:
     - id: oi-workbench-skill-filesystem
       name: '@deepseek-ai/dsh-skill-filesystem'
       config:
         providerName: oi-workbench-plugin
         includeDefaultRoots: false
-        bundledSkillDir: !!js process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('dsh-oi-workbench/package.json')), 'skills')
-- insert:
-    - id: dsh-commands
-      name: '@etby-studio/dsh-commands'
-      config:
-        commandDirs:
-          - !!js process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('dsh-oi-workbench/package.json')), 'skills', 'oi-workbench', 'commands', 'register')
+        bundledSkillDir: !!js process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('@muyangplus/dsh-oi-workbench/package.json')), 'skills')
+    - id: dsh-oi-workbench
+      name: '@muyangplus/dsh-oi-workbench'
+      config: {}

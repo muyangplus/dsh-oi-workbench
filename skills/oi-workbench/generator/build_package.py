@@ -152,7 +152,13 @@ def build_config_yaml(spec, data_files, subtask_cases):
 def validate(spec, data_dir):
     issues = []
     judge = spec_support.resolve_judge(spec)
-    if judge.get("spj") or judge.get("checker"):
+    if judge.get("interactor"):
+        interactor = judge.get("interactor")
+        if not interactor:
+            issues.append("交互题未指定 judge.interactor")
+        elif not os.path.exists(os.path.join(data_dir, interactor)):
+            issues.append("interactor 文件不存在于 data/: %s" % interactor)
+    elif judge.get("spj") or judge.get("checker"):
         checker = judge.get("checker")
         if not checker:
             issues.append("judge.spj=true 但未指定 judge.checker")
