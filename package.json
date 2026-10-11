@@ -1,12 +1,20 @@
 {
   "name": "@muyangplus/dsh-oi-workbench",
-  "version": "0.1.5",
-  "description": "OI 出题工作台：知识点锁定、数据构造、本地评测，打包 Hydro/HOJ 原生题目包，发布/管理 Hydro 与 HOJ OJ，提供出题工具链。Opt-in skill-first plugin for DeepSeek Harness.",
+  "version": "0.2.0",
+  "description": "OI 出题工作台：知识点锁定、数据构造、本地评测，打包 Hydro/HOJ 原生题目包，发布/管理 Hydro 与 HOJ OJ，提供出题工具链与 DSH 原生管理面板。Opt-in skill-first plugin for DeepSeek Harness.",
   "license": "Apache-2.0",
   "type": "module",
   "main": "./lib/index.js",
+  "types": "./lib/types/index.d.ts",
   "exports": {
-    ".": "./lib/index.js",
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -29,7 +37,8 @@
     "problem-setting",
     "hydro",
     "hoj",
-    "local-judge"
+    "local-judge",
+    "ui-panel"
   ],
   "engines": {
     "node": "^18.0.0 || >=20.0.0"
@@ -44,6 +53,18 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-slots"
+      ],
+      "platform": "web"
     }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-tools": "^0.0.1-rc.1",
+    "cordis": ">=4.0.0-rc <5",
+    "schemastery": "^3.18.0"
   }
 }

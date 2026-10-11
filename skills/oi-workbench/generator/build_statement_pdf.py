@@ -31,18 +31,18 @@ import subprocess
 import sys
 
 DEFAULT_NOTES = [
-    "文件名（程序名和输入输出文件名）必须使用英文小写。",
+    "提交的源程序文件名必须使用英文小写。",
     "main 函数的返回值类型必须是 int，程序正常结束时的返回值必须是 0。",
-    "若无特殊说明，结果的比较方式为全文比较（过滤行末空格及文末换行）。",
+    "若无特殊说明，结果的比较方式为全文比较，忽略行末空格与文末换行。",
     "选手提交的程序源文件大小不得超过 100 KiB。",
     "提交的程序源文件的放置位置请参考各省的具体要求。",
     "程序可使用的栈空间内存限制与题目的内存限制一致。",
-    "禁止在源代码中改变编译器参数（如使用 \\#pragma 命令），禁止使用系统结构相关指令"
-    "（如内联汇编）或其他可能造成不公平的方法。",
+    "禁止在源代码中改变编译器参数，例如使用 \\#pragma 命令；禁止使用系统结构相关指令，"
+    "例如内联汇编；禁止其他可能造成不公平的方法。",
     "因违反上述规定而出现的问题，申诉时一律不予受理。",
     "只提供 Linux 格式附加样例文件。",
-    "全国统一评测时采用的机器配置为：Intel Core Ultra 9 285K CPU @ 3.70 GHz"
-    "（关闭睿频与能效核），内存 96 GB。上述时限以此配置为准。",
+    "全国统一评测时采用的机器配置为：Intel Core Ultra 9 285K CPU @ 3.70 GHz，"
+    "评测时关闭睿频与能效核；内存 96 GB。上述时限以此配置为准。",
     "评测在当前最新公布的 NOI Linux 下进行，各语言的编译器版本以此为准。",
 ]
 
@@ -328,7 +328,7 @@ def cover_latex(args, problems):
         "\\vspace{0.4em}",
         "\\noindent\\textbf{编译选项}",
         "\\par\\noindent 对于 C++ 语言：\\texttt{-O2 -std=c++14 -static}",
-        "\\par\\medskip\\noindent\\textbf{注意事项（请仔细阅读）}",
+        "\\par\\medskip\\noindent\\textbf{注意事项}",
         "\\begin{enumerate}\\setlength{\\itemsep}{1pt}",
     ]
     for note in args.notes:
@@ -340,8 +340,8 @@ def cover_latex(args, problems):
 
 def problem_latex(p):
     body = md_to_latex(p["md"])
-    return "\\problemheader{%s（%s）}\n\n\\begin{center}{\\Large\\bfseries %s（%s）}\\end{center}\n\n%s" % (
-        p["name"], p["file"], p["name"], p["file"], body)
+    return "\\problemheader{%s}\n\n\\begin{center}{\\Large\\bfseries %s}\\end{center}\n\n%s" % (
+        p["name"], p["name"], body)
 
 
 # ---------- 文档 ----------

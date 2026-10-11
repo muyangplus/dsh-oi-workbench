@@ -37,6 +37,11 @@ VALID_JUDGE_MODES = {"default", "spj", "interactive"}
 VALID_CASE_MODES = {"default", "subtask_lowest", "subtask_average"}
 DEFAULT_CODE_TEMPLATES = [{"code": "", "language": "C++"}]
 
+# 题面内联样例条数：按规范『样例 1-2 内联，大样例只随附件 zip 提供』，
+# HOJ 的 problem.examples 默认只放前 2 组；spec.json 可用 examplesLimit 覆盖
+# （None 表示不限制，例如确有 3 组小样例的题目）。
+DEFAULT_EXAMPLES_LIMIT = 2
+
 
 def load_spec(pdir):
     spec_path = os.path.join(pdir, "spec.json")
@@ -191,9 +196,19 @@ def parse_problem_md(pdir):
     sections = parse_problem_md_sections(pdir)
 
     def pick(*names):
+        """按小节标题取内容（精确匹配，或忽略『格式』二字后匹配）。
+
+        必须排除『样例输入 N』『样例输出 N』：这两个标题里含有『输入』『输出』，
+        早期用子串匹配会把样例正文塞进输入/输出格式里，导致题面上出现两份样例。
+        样例统一由 sample/ 目录渲染进 problem.examples。
+        """
+        norm = {n.replace("格式", "").strip() for n in names}
         vals = []
         for title, content in sections.items():
-            if any(n in title for n in names) and content:
+            t = title.strip()
+            if not content or "样例" in t:
+                continue
+            if t in names or t.replace("格式", "").strip() in norm:
                 vals.append(content)
         return "\n\n".join(vals).strip()
 
@@ -206,11 +221,19 @@ def parse_problem_md(pdir):
     return desc, inp, out, data_range
 
 
-def build_examples_html(sample_dir):
+def build_examples_html(sample_dir, limit=DEFAULT_EXAMPLES_LIMIT):
+    """把 sample/ 下的前 limit 组样例渲染成 HOJ 的 examples 字段。
+
+    limit=None 表示不限制；大样例（第 3 组及以后）不应进题面。
+    """
     if not os.path.isdir(sample_dir):
         return ""
     blocks = []
-    for f in sorted(os.listdir(sample_dir)):
+    files = sorted(os.listdir(sample_dir),
+                   key=lambda x: int(re.sub(r"\D", "", os.path.splitext(x)[0]) or 0))
+    for f in files:
+        if limit is not None and len(blocks) >= int(limit):
+            break
         if f.endswith(".in"):
             base = f[:-3]
             out_path = os.path.join(sample_dir, base + ".out")
@@ -325,7 +348,7 @@ def build_hoj_payload(spec, cases, pdir):
 
     desc, inp, out, data_range = parse_problem_md(pdir)
     sample_dir = os.path.join(pdir, "sample")
-    examples = build_examples_html(sample_dir)
+    examples = build_examples_html(sample_dir, spec.get("examplesLimit", DEFAULT_EXAMPLES_LIMIT))
     memory = parse_memory_mb(spec.get("memory", "256m"))
     io_mode, io_in, io_out = spec_support.resolve_io(spec)
     file_io = {"input": io_in, "output": io_out} if io_mode == "file" else {}
@@ -429,6 +452,8 @@ def main():
     ap.add_argument("problem_dir")
     ap.add_argument("--out", default=None)
     ap.add_argument("--check", action="store_true")
+    ap.add_argument("--problem-id", default=None,
+                    help="覆盖题目展示 ID（例如整卷批量上传时统一编号成 X1241）")
     args = ap.parse_args()
 
     pdir = os.path.normpath(args.problem_dir)
@@ -436,6 +461,8 @@ def main():
         sys.exit(f"题目目录不存在: {pdir}")
     data_dir = os.path.join(pdir, "data")
     spec = load_spec(pdir)
+    if args.problem_id:
+        spec["pid"] = str(args.problem_id)
     pairs = data_pairs(data_dir)
     cases = build_case_list(spec, pairs)
 

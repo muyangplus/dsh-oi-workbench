@@ -29,6 +29,7 @@ import argparse
 import json
 import os
 import shutil
+import subprocess
 import zipfile
 
 DEFAULT_NOTE = "每个测试点等分，总分 100。"
@@ -50,6 +51,7 @@ def load_problem(problem_dir):
         "name": spec.get("title", stem),
         "cpp": stem + ".cpp",
         "io": io,
+        "judge": spec.get("judge") or {},
         "time": spec.get("time", "1000ms"),
         "memory": spec.get("memory", "512m"),
         "npoints": len(cases),
@@ -121,23 +123,48 @@ def build_cdf(contest_title, problems):
                 "timeLimit": time_ms(p["time"]),
                 "memoryLimit": memory_mb(p["memory"]),
             })
-        tasks.append({
+        judge = p.get("judge") or {}
+        jtype = judge.get("type") or "default"
+        is_interactive = jtype in ("interactive", "communication") or bool(judge.get("interactor"))
+        is_spj = bool(judge.get("spj") or judge.get("checker")) and not is_interactive
+        task_type = 0
+        special_judge = ""
+        if is_interactive:
+            task_type = 2
+            grader = "__grader.cpp"
+            special_judge = "%s/%s" % (p["file"], grader)
+        elif is_spj:
+            checker = judge.get("checker") or "checker.cpp"
+            exe_name = "checker.exe" if os.name == "nt" else "checker"
+            special_judge = "%s/%s" % (p["file"], exe_name)
+        comparison_mode = 4 if is_spj else 1
+        in_name = io.get("input", "") if file_io else ""
+        out_name = io.get("output", "") if file_io else ""
+        if is_interactive:
+            in_name = "%s.in" % p["file"]
+            out_name = "%s.out" % p["file"]
+        task = {
             "answerFileExtension": "out",
-            "comparisonMode": 1,
+            "comparisonMode": comparison_mode,
             "compilerConfiguration": {"g++": "C++14 O2"},
             "diffArguments": "--ignore-space-change --text --brief",
-            "inputFileName": io.get("input", "") if file_io else "",
-            "outputFileName": io.get("output", "") if file_io else "",
+            "inputFileName": in_name,
+            "outputFileName": out_name,
             "problemTitle": p["file"],
             "realPrecision": 3,
             "sourceFileName": p["file"],
-            "specialJudge": "",
+            "specialJudge": special_judge,
             "standardInputCheck": False,
             "standardOutputCheck": False,
             "subFolderCheck": False,
-            "taskType": 0,
+            "taskType": task_type,
             "testCases": test_cases,
-        })
+        }
+        if is_interactive:
+            task["interactor"] = "%s/interact.h" % p["file"]
+            task["interactorName"] = "interact.h"
+            task["grader"] = "%s/__grader.cpp" % p["file"]
+        tasks.append(task)
     contestant = {
         "contestantName": "std",
         "sourceFile": [p["cpp"] for p in problems],
@@ -204,6 +231,7 @@ def build_readme(contest_title, cdf_filename, args, problems):
         + "- 测试点文件命名采用 Lemon 惯用格式 <题目英文名><编号>.in/.out，\n"
         + "  Lemon 会自动识别各题源文件名与输入输出文件名。\n"
         + "- %s 由本工具生成，内含全部题目与 std 选手（未评测状态）。\n" % cdf_filename
+        + "- 交互题/SPJ 已写入 .cdf 的 taskType/specialJudge；请用 LemonLime 打开确认。\n"
     )
     return readme
 
@@ -250,8 +278,37 @@ def main():
             for ext in ("in", "out"):
                 shutil.copyfile(os.path.join(src_data, "%d.%s" % (i, ext)),
                                 os.path.join(dst_data, "%s%d.%s" % (p["file"], i, ext)))
-        shutil.copyfile(os.path.join(p["dir"], "std", "std.cpp"),
-                        os.path.join(contest_dir, "source", "std", p["cpp"]))
+        judge = p.get("judge") or {}
+        jtype = judge.get("type") or "default"
+        is_interactive = jtype in ("interactive", "communication") or bool(judge.get("interactor"))
+        std_src = os.path.join(p["dir"], "std", "std.cpp")
+        if is_interactive:
+            lemon_std = os.path.join(p["dir"], "std", "std_lemon.cpp")
+            if os.path.exists(lemon_std):
+                std_src = lemon_std
+        shutil.copyfile(std_src, os.path.join(contest_dir, "source", "std", p["cpp"]))
+        judge = p.get("judge") or {}
+        for key in ("checker", "interactor"):
+            fname = judge.get(key)
+            if fname:
+                src = os.path.join(p["dir"], "data", fname)
+                if os.path.exists(src):
+                    shutil.copyfile(src, os.path.join(dst_data, fname))
+        jtype = judge.get("type") or "default"
+        is_interactive = jtype in ("interactive", "communication") or bool(judge.get("interactor"))
+        if is_interactive:
+            for extra in ("grader.cpp", "__grader.cpp", "interact.h"):
+                src = os.path.join(p["dir"], "data", extra)
+                if os.path.exists(src):
+                    shutil.copyfile(src, os.path.join(dst_data, extra))
+        lemon_checker_src = os.path.join(p["dir"], "data", "checker_lemon.cpp")
+        if os.path.exists(lemon_checker_src):
+            exe_name = "checker.exe" if os.name == "nt" else "checker"
+            dst_exe = os.path.join(dst_data, exe_name)
+            subprocess.run(
+                ["g++", "-O2", "-std=c++14", "-static", lemon_checker_src, "-o", dst_exe],
+                check=True)
+            print("  [lemon] compiled %s -> %s" % (lemon_checker_src, dst_exe))
 
     readme = build_readme(contest_title, cdf_filename, args, problems)
     with open(os.path.join(contest_dir, "README.txt"), "w", encoding="utf-8") as f:

@@ -19,6 +19,7 @@ hoj_api.py —— HOJ（HimitZH/HOJ）REST 客户端。
 import json
 import mimetypes
 import os
+import time
 import uuid
 from http.cookiejar import CookieJar
 from urllib import error, parse, request
@@ -32,10 +33,16 @@ class HojError(RuntimeError):
 
 class HojClient:
     def __init__(self, base_url, username=None, password=None, cookie=None,
-                 timeout=60, verify=True):
+                 timeout=60, verify=True, token=None):
+        """token: 已有的 JWT（网页/其它客户端登录后拿到的 Authorization 头原值）。
+
+        HOJ 的鉴权头是 `Authorization: <jwt>`（裸 JWT，不带 Bearer 前缀），
+        且服务端会校验该 JWT 的 sub 是否仍在 Redis 里有效。
+        """
         self.base = base_url.rstrip("/")
         self.timeout = timeout
         self.verify = verify
+        self.auth_token = token or None
         self.cookies = CookieJar()
         if not verify:
             # 仅用于自签名内网实例（用户需自行确认安全策略）
@@ -53,6 +60,8 @@ class HojClient:
         if cookie:
             # 不解析，直接原样作为 Cookie 头发送；服务器 Set-Cookie 仍由 cookiejar 管理。
             pass
+        elif token:
+            self.login_with_token()
         elif username and password:
             self.login(username, password)
 
@@ -72,6 +81,8 @@ class HojClient:
         hdrs = {"User-Agent": DEFAULT_UA}
         if self.session_cookie:
             hdrs["Cookie"] = self.session_cookie
+        if self.auth_token:
+            hdrs["Authorization"] = self.auth_token
         data = None
         if json_body is not None:
             data = json.dumps(json_body, ensure_ascii=False).encode("utf-8")
@@ -103,6 +114,7 @@ class HojClient:
         try:
             with self.opener.open(req, timeout=timeout or self.timeout) as resp:
                 body = resp.read()
+                self._capture_refreshed_token(dict(resp.headers))
                 if raw:
                     return resp.status, body, dict(resp.headers)
                 text = body.decode("utf-8", "replace")
@@ -125,6 +137,14 @@ class HojClient:
         except error.URLError as e:
             raise HojError(f"{method} {path}: 网络错误 {e.reason}") from e
 
+    def _capture_refreshed_token(self, headers):
+        """HOJ 在接近过期时会通过响应头下发新 JWT（Refresh-Token: true）。"""
+        if not self.auth_token:
+            return
+        new = {k.lower(): v for k, v in headers.items()}
+        if str(new.get("refresh-token", "")).lower() == "true" and new.get("authorization"):
+            self.auth_token = new["authorization"]
+
     def _request_data(self, method, path, **kwargs):
         status, data, _ = self._request(method, path, **kwargs)
         if isinstance(data, dict) and "data" in data:
@@ -137,6 +157,27 @@ class HojClient:
         self._request_data("POST", "api/admin/login",
                            json_body={"username": username, "password": password})
         return self
+
+    def login_with_token(self, attempts=3):
+        """用已有 JWT 建立会话（不发送账号密码）。
+
+        HOJ 的鉴权头为 `Authorization: <jwt>`（裸 JWT）。这里调
+        `GET /api/get-user-auth-info`（@RequiresAuthentication）做一次自检，
+        顺便把当前账号信息存到 self.me，便于调用方确认身份/权限。
+
+        注意：实例偶发返回 401/5xx（限流或瞬时故障），因此重试若干次；
+        全部失败才抛错，避免一次抖动就让整个批量任务中断。
+        """
+        last = None
+        for i in range(max(1, attempts)):
+            try:
+                self.me = self._request_data("GET", "api/get-user-auth-info")
+                return self.me
+            except HojError as e:
+                last = e
+                if i + 1 < attempts:
+                    time.sleep(1.5 * (i + 1))
+        raise HojError(f"token 校验失败（可能已过期/被顶号/实例抖动）：{last}") from last
 
     def logout(self):
         return self._request_data("GET", "api/admin/logout")
@@ -214,6 +255,8 @@ class HojClient:
         hdrs = {"User-Agent": DEFAULT_UA}
         if self.session_cookie:
             hdrs["Cookie"] = self.session_cookie
+        if self.auth_token:
+            hdrs["Authorization"] = self.auth_token
         req = request.Request(url, headers=hdrs)
         try:
             with self.opener.open(req, timeout=self.timeout) as resp:
@@ -277,11 +320,18 @@ class HojClient:
     def update_contest_problem(self, problem_dto):
         return self._request_data("PUT", "api/admin/contest/problem", json_body=problem_dto)
 
-    def delete_contest_problem(self, pid, cid=None):
-        params = {"pid": pid}
-        if cid is not None:
-            params["cid"] = cid
-        return self._request_data("DELETE", "api/admin/contest/problem", params=params)
+    def delete_contest_problem(self, pid, cid):
+        """把题目从比赛中下架（pid = 题目数据库 id，不是展示编号）。
+
+        ⚠ 必须传 cid！HOJ 源码 AdminContestProblemManager.deleteProblem(pid, cid)：
+            cid != null -> 只删 contest_problem 关联行 (cid, pid)
+            cid == null -> removeById(pid) 直接删题目本身 + 删测试数据目录（不可恢复）
+        因此这里把 cid 设为必填，避免误删题目。
+        """
+        if cid is None:
+            raise HojError("delete_contest_problem 必须提供 cid：不带 cid 会删除题目本身及测试数据")
+        return self._request_data("DELETE", "api/admin/contest/problem",
+                                  params={"pid": pid, "cid": cid})
 
     def set_contest_problem(self, contest_problem):
         return self._request_data("PUT", "api/admin/contest/contest-problem", json_body=contest_problem)

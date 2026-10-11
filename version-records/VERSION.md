@@ -4,10 +4,10 @@
 
 | 项 | 值 |
 |---|---|
-| 当前版本（dev 仓库） | 0.1.5 |
+| 当前版本（dev 仓库） | 0.2.0 |
 | 当前分支 | main（跟踪 origin-dev/main） |
 | License | Apache-2.0 |
-| 最近一次发布 | 未发布（dev 线重启序号；迭代期不发布） |
+| 最近一次发布 | 0.2.0（发布中：public dev 出 beta → PR 合 main 出正式版 + GitHub Release + tag v0.2.0） |
 
 ## 版本策略（两层）
 
@@ -32,8 +32,7 @@
 | 0.1.3 | ✅ 已完成 | 工程批次：HOJ 导出修复（info/数据范围入提示）、盲审工具（发布前/生成题目后）、文档与评测规范清理、dsh-commands 改为可选依赖 | changelog/v0.1.3.md |
 | 0.1.4 | ✅ 已完成 | 功能批次 3–5 聚合：故事题面/story-card、一次性出比赛、连载、spj·交互、testlib.h；发布名改 @muyangplus/dsh-oi-workbench | changelog/v0.1.4.md |
 | 0.1.5 | ✅ 已完成 | 发布版 README 修正（dsh-commands 可选）+ 一键整场 generate_contest + spj/交互验证 validate_spj + story-card 幂等 | changelog/v0.1.5.md |
-| 0.1.5 | 已并入 0.1.4 | 批次 4：一次性出一场比赛 | — |
-| 0.1.6 | 已并入 0.1.4 | 批次 5：连续剧情 / 连载 | — |
-| 0.2.0 | 下次发布（聚合） | 聚合 0.1.1–0.1.6 的正式发布版本 | 发布时汇总 |
+| 0.1.6 | 已并入 0.2.0 | 迭代批次：多轮出题经验回灌（打包器 / Lemon 导出 / 本地评测 / 样例打包 / check_problem） | — |
+| 0.2.0 | ✅ 已完成（本次发布） | 聚合 0.1.5 之后全部迭代：多轮出题经验 + **题面硬约束与检查器** + DSH 原生管理面板 | changelog/v0.2.0.md |
 
 > 版本号变化必须伴随 changelog 条目，缺一不可；分批安排见 `ROADMAP.md`。

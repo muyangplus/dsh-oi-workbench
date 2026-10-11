@@ -310,7 +310,7 @@ def main():
     print("[mode] judge.mode=%s io=%s%s" % (
         mode, io_mode, " spj=%s" % judge["checker"] if judge["spj"] and judge["checker"] else ""))
 
-    with tempfile.TemporaryDirectory(prefix="oiwb-judge-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="oiwb-judge-", ignore_cleanup_errors=True) as tmp:
         exe = os.path.join(tmp, "program.exe" if os.name == "nt" else "program")
         cp = compile_source(source, exe, args.compile)
         if cp.returncode != 0:

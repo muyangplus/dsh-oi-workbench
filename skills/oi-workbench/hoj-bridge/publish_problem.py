@@ -74,6 +74,9 @@ def direct_publish(oj, problem_dir, args):
             print(f"[error] {e}", file=sys.stderr)
         sys.exit("spec/数据校验失败")
     payload, ordered = build_hoj_payload(spec, cases, pdir)
+    if getattr(args, "problem_id", None):
+        # 用外部指定 ID（例如整卷批量上传时统一编号）覆盖 spec 里的 pid
+        payload["problem"]["problemId"] = str(args.problem_id)
     if args.dry_run:
         import json
         print("[dry-run] 将直接创建题目（admin API）")
@@ -88,7 +91,7 @@ def direct_publish(oj, problem_dir, args):
     with tempfile.TemporaryDirectory(prefix="hoj-tc-") as tmp:
         tc_zip = os.path.join(tmp, "testcase.zip")
         make_testcase_zip(pdir, tc_zip)
-        upload = oj.upload_testcase_zip(tc_zip, mode=payload["judgeCaseMode"], gid=args.gid)
+        upload = oj.upload_testcase_zip(tc_zip, mode=payload["problem"]["judgeCaseMode"], gid=args.gid)
         file_list = upload.get("fileList") or payload["samples"]
         file_dir = upload.get("fileListDir")
         if not file_dir:
@@ -126,7 +129,7 @@ def direct_publish(oj, problem_dir, args):
                 if score is None:
                     score = 100 // max(1, len(file_list))
                 entry["score"] = score
-            if payload["judgeCaseMode"] in ("subtask_lowest", "subtask_average"):
+            if payload["problem"]["judgeCaseMode"] in ("subtask_lowest", "subtask_average"):
                 entry["groupNum"] = next((c.get("groupNum") for c in ordered if c.get("input") == fl["input"]), 1)
             samples.append(entry)
 
@@ -153,17 +156,21 @@ def main():
     ap.add_argument("--user", default=None)
     ap.add_argument("--password", default=None, help="或用环境变量 HOJ_PASSWORD")
     ap.add_argument("--cookie", default=None)
+    ap.add_argument("--token", default=None,
+                    help="已有 JWT（Authorization 头原值）；也可用环境变量 HOJ_TOKEN")
     ap.add_argument("--zip", default=None, help="HOJ 导入 zip（已由 build_hoj_package.py 生成）")
     ap.add_argument("--hydro-zip", default=None, help="Hydro zip，通过 /api/file/import-hydro-problem 导入")
     ap.add_argument("--problem-dir", default=None, help="题目目录（自动打包为 HOJ zip）")
     ap.add_argument("--direct", action="store_true", help="不用后台导入接口，改用 admin API 直传")
+    ap.add_argument("--problem-id", default=None, help="覆盖题目 ID（如 X1241）")
     ap.add_argument("--gid", type=int, default=None, help="团队 ID（可选）")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
     password = args.password or os.environ.get("HOJ_PASSWORD")
-    if not args.cookie and not (args.user and password):
-        sys.exit("需要 --user/--password（或环境变量 HOJ_PASSWORD）或 --cookie")
+    token = args.token or os.environ.get("HOJ_TOKEN")
+    if not token and not args.cookie and not (args.user and password):
+        sys.exit("需要 --token（或环境变量 HOJ_TOKEN）/ --user+--password / --cookie 之一")
     if args.hydro_zip and args.zip:
         sys.exit("--zip 与 --hydro-zip 不能同时使用")
     if not (args.zip or args.hydro_zip or args.problem_dir):
@@ -174,10 +181,12 @@ def main():
 
     oj = None
     if not args.dry_run:
-        oj = HojClient(args.base, username=args.user if not args.cookie else None,
-                       password=password if not args.cookie else None,
-                       cookie=args.cookie)
-        if not args.cookie:
+        oj = HojClient(args.base, username=args.user if not (args.cookie or token) else None,
+                       password=password if not (args.cookie or token) else None,
+                       cookie=args.cookie, token=token)
+        if token:
+            print(f"[ok] 已用 JWT 建立会话：{oj.base} 账号={oj.me.get('username') if isinstance(oj.me, dict) else oj.me}")
+        elif not args.cookie:
             print(f"[ok] 已登录 {args.user}")
     else:
         print("[dry-run] 不登录、不发送请求")

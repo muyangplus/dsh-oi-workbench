@@ -66,7 +66,7 @@ dsh plugin --profile web add @muyangplus/dsh-oi-workbench
 skills/oi-workbench/
 ├── SKILL.md               # 出题工作流（技能入口，含评测约定）
 ├── knowledge-base/        # 内部整理的知识点速查：入门级/提高级/专家级
-├── specs/                 # 规范：测试点表格、数据构造、题面风格、变式、用户自定义内容
+├── specs/                 # 规范：测试点表格、数据构造、题面风格、故事题面、变式、用户自定义内容
 ├── templates/             # 模板：题面、分数表、题目包、知识库卡片
 ├── generator/             # Hydro/HOJ 打包器 + 校验器 + 本地评测器 + PDF/Lemon/样例打包器（Python 标准库）
 ├── hydro-bridge/          # Hydro OJ 对接（登录/题目/比赛/团队）
@@ -77,25 +77,24 @@ skills/oi-workbench/
 
 ## 用户自定义知识库 / 参考题
 
-用户可自行增删改查 **reference / knowledge-base**，数据存于 `~/.dsh-oi-workbench/`
+用户可自行维护 **reference / knowledge-base**，数据存于 `~/.dsh-oi-workbench/`
 （`kb/` 与 `reference/`），不侵入插件安装目录；技能「锁定知识点」时并入使用，
 同名 `topic` 以用户卡为准，`level` 允许自定义新增。规范见
-`skills/oi-workbench/specs/user-content.md`；用户层内容直接维护
-`~/.dsh-oi-workbench/kb/` 与 `~/.dsh-oi-workbench/reference/` 下对应文件。
+`skills/oi-workbench/specs/user-content.md`；直接维护 `~/.dsh-oi-workbench/` 下对应文件即可。
 
 ## TODO
 
 已完成：
 
-- [x] 复杂背景故事题面 / story-card / 完整样例打包 / 整卷 PDF / Lemon 导出
-- [x] 一键出整场比赛（build_contest / generate_contest）
-- [x] 连续剧情 / 连载（story.yaml + story_continuity）
-- [x] spj / 交互题本地评测（testlib + interactor）
-- [x] 移除 Python UI 管理与斜杠命令内容
+- 出题工作流：知识点锁定、测试点/分数表、数据构造/击杀矩阵、本地评测、盲审；
+- 题面与样例：复杂背景故事/story-card、完整样例平铺、整卷 PDF、连续剧情/连载；
+- 一键整场：`build_contest.py` / `generate_contest.py`（story + story.yaml + 全套交付）；
+- 特殊评测：testlib checker、交互题 interactor、`validate_spj.py`；
+- 清理：移除 Python 外部 UI 与系统斜杠命令。
 
 未完成：
 
-- [ ] DSH 原生 UI 管理能力（设置页/面板替代 Python UI）
+- [ ] **DSH 原生 UI 管理能力**：用 DeepSeek Harness 原生设置页/面板管理 OJ、题目、比赛与工作台。
 
 ## 常用命令
 
@@ -110,6 +109,15 @@ python generator\verify_hoj_package.py P01-hoj.zip
 
 # 本地评测
 python generator\local_judge.py examples\demo --source std\std.cpp
+
+# 完整样例打包（平铺 1/2/3 + 更新题面引用）
+python generator\package_samples.py --problems examples\demo --story-dir <故事题面目录> --combined samples.zip
+
+# 整卷 PDF（官方风格封面/注意事项/页眉页脚）
+python generator\build_statement_pdf.py --contest "LKCP" --subtitle "2026 第二轮认证" --problems examples\demo --out paper.pdf
+
+# Lemon 评测机比赛数据（含 std 选手与 .cdf）
+python generator\export_lemon.py --contest LKCP --problems examples\demo --out dist\lemon
 
 # 一键校验全部自出参考题
 python generator\build_all_reference.py

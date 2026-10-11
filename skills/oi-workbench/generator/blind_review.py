@@ -123,7 +123,8 @@ def should_skip(path, mode="generic"):
                  "/data/", "/sample/", "/__pycache__/")
     # 仅发布前整仓扫描时跳过 scratch 目录；显式 --problem 目标不受此限制
     if mode == "release":
-        skip_dirs += ("/.tmp/", "/_tmp_")
+        skip_dirs += ("/.tmp/", "/_tmp_", "/dist/", "/_scratch/", "/.scratch/",
+                      "/bazaar_check/", "/node_modules/")
     if any(d in norm for d in skip_dirs):
         return True
     if norm.endswith("/VERIFICATION.md"):
