@@ -24,8 +24,9 @@
 | 批次 1 | 0.1.1 | 用户自定义知识库 / 参考题（增删改查） | ✅ 已完成 |
 | 批次 2 | 0.1.2 | 标准 IO / 文件 IO 双模式 + 一般 OJ 评测模式 | ✅ 已完成 |
 | 批次 3 | 0.1.4 | 故事题面 + 故事设计能力 | ⬜ |
-| 批次 4 | 0.1.5 | 一次性出一场比赛 | ⬜ |
-| 批次 5 | 0.1.6 | 连续剧情 / 连载 | ⬜ |
+| 批次 4 | 0.1.5 | 一次性出一场比赛 | ✅ 已完成 |
+| 批次 5 | 0.1.6 | 连续剧情 / 连载 | ✅ 已完成 |
+| 批次 6 | 0.3.0 | DSH 0.2.1 适配（版本门禁 / 新宿主 API / 技能注册）+ 原生管理面板 | ✅ 已完成 |
 
 > **版本占用说明**：0.1.3 已用于工程/维护批次（HOJ 导出修复、盲审工具、
 > 文档与评测规范清理、dsh-commands 可选化，见 `changelog/v0.1.3.md`），
@@ -33,10 +34,10 @@
 
 依赖关系：批次 1、2 相互独立，可先行；批次 3 独立；批次 4 依赖 2 + 3；批次 5 依赖 3 + 4。
 
-> **版本注释（用户约定）**：dev 迭代期间维持 `0.1` 主次版本号不变，每完成一个功能批次递增修正号
-> （0.1.1 → 0.1.2 → …）；**迭代期间不发布**（不推 public、不 npm）。
-> 下次发布时，把迭代期间累积改动聚合调整为 `0.2.0`，再走 public 流程
-> （public dev → CI beta → PR main → 正式版 + GitHub Release + tag）。
+> **版本注释（用户约定，已演进）**：0.2.0 发布后，dev 迭代按修正号递增（0.2.1 → …）；
+> 若一批同时包含平台适配与用户可见功能，可升次版本号（当前 0.3.0）。
+> **迭代期间不发布**（不推 public、不 npm）。下次发布时，把迭代期间累积改动聚合为
+> `0.3.0`，再走 public 流程（public dev → CI beta → PR main → 正式版 + GitHub Release + tag）。
 
 ---
 
@@ -191,14 +192,43 @@
 
 ---
 
+## 批次 6（v0.3.0，✅ 已完成）：DSH 0.2.1 适配 + 原生管理面板
+
+**背景**：DSH 升级到 0.2.1-rc.2 后新增插件版本门禁（`dsh.engines.dsh` / `peerDependencies`
+中的 `@deepseek-ai/dsh*` 必须与运行时版本匹配），不匹配的插件会被启动器**整体跳过**；
+客户端插件 API 也从旧版 DOM `component().render` 换成 React + `ctx.slots`。
+因此 0.2.0 插件在新 DSH 上既不加载技能，也不显示面板。
+
+**范围**
+1. 兼容门禁：`package.json` 增 `dsh.engines.dsh: ">=0.2.1-rc.2"`，`peerDependencies` 改为
+   `@deepseek-ai/dsh` + `react`，清空 `dsh.client.inject` 中的非基线行。
+2. 宿主侧新 API：`@deepseek-ai/cordis`、`@deepseek-ai/schemastery`、`ctx.webServer.register`、
+   `ctx.tools.register(defineTool)`、`ctx.effect`；Python 调用改异步。
+3. 技能注册：删除 `dsh-skill-filesystem` patch 插入行，改由
+   `ctx.skills.registerProvider()` 注册包内 `oi-workbench` skill。
+4. 原生管理面板：`sidebar.panellist` 入口 + `main` 主面板（总览 / 题目 / OJ / 比赛 / 帮助），
+   host API（state / problems / action）与 `oiwb_status` 工具。
+5. 技能文本迭代：SKILL.md 新增面板与工具章节、安装与运行环境、删除失效引用；
+   新增 `specs/native-panel.md`。
+6. 验收工具：`scripts/verify_plugin.mjs` 覆盖版本门禁、宿主导入、skill provider、路由、
+   路径越界、真实 check/judge、浏览器 bundle 契约、发布文件集。
+
+**验收标准**
+- `npm run typecheck`、`npm run build`、`npm run verify` 全绿；
+- 插件在 DSH 0.2.1-rc.2 启动时不再被跳过，会话技能目录出现 `oi-workbench`;
+- Web GUI 侧边栏出现「OI 工作台」，主面板可浏览 examples/demo 并完成检查、构建、评测；
+- 面板不保存明文凭据，路径操作限制在工作台根目录内。
+
+---
+
 ## 每批推进方式（审计门）
 
-1. 实施该批全部改动到 dev 仓库 → 本地验证全绿（打包 / 评测 / 杀阵矩阵）；
-2. 写 `version-records/changelog/v0.1.x.md`，更新 `VERSION.md` 速览与当前版本；
-3. package.json 版本升到本次迭代号（0.1.x），提交并推送 `origin-dev main`；
+1. 实施该批全部改动到 dev 仓库 → 本地验证全绿（`npm run verify` + 打包 / 评测 / 杀阵矩阵）；
+2. 写 `version-records/changelog/v<版本>.md`，更新 `VERSION.md` 速览与当前版本；
+3. package.json 版本升到本次迭代号，提交并推送 `origin main`；
 4. **等用户确认**；
 5. 迭代期间不发布（不推 public、不 npm）；
-6. 用户要求「发布」时：把 0.1.1–0.1.6 聚合调整为 `0.2.0` → 压缩为标准英文 ASCII 提交
+6. 用户要求「发布」时：把迭代期累积改动聚合为 `0.3.0` → 压缩为标准英文 ASCII 提交
    推 public `dev` → CI 出 beta → PR `main` → CI 正式版 + GitHub Release + tag。
 
 ## 安全与边界（沿用 DEVELOPMENT.md / SKILL.md）

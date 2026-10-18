@@ -1,7 +1,8 @@
 # 用户自定义内容规范（User Content）
 
-> 批次 1（v0.1.1）产物。定义用户如何自行添加 **reference / knowledge-base**，
-> 以及技能如何使用这些内容。实现方式：直接维护 `~/.dsh-oi-workbench/` 下的目录与文件。
+> 定义用户如何自行添加 **reference / knowledge-base**，以及技能如何使用这些内容。
+> 实现方式：直接维护 `~/.dsh-oi-workbench/` 下的目录与文件；题目/OJ/比赛的管理面由 DSH 原生面板承载，
+> 见 `specs/native-panel.md`。
 
 ## 1. 目标
 
@@ -12,7 +13,7 @@
 
 ## 2. 存储布局
 
-默认数据根目录：`~/.dsh-oi-workbench/`（与 `hoj_config.json` 同层；`--home` 可覆盖以便测试）。
+默认数据根目录：`~/.dsh-oi-workbench/`。
 
 ```text
 ~/.dsh-oi-workbench/
@@ -21,10 +22,9 @@
 │   ├── level-2-intermediate/<topic>.md
 │   ├── level-3-expert/<topic>.md
 │   └── <custom-level-slug>/<topic>.md
-├── reference/                     # 用户参考题（与内置 reference/ 同构）
-│   ├── level-1-basic/<id>/{problem.md,spec.json,data,sample,std,brute.cpp,generator/}
-│   └── ...
-└── hoj_config.json                # （既有，HOJ UI 配置）
+└── reference/                     # 用户参考题（与内置 reference/ 同构）
+    ├── level-1-basic/<id>/{problem.md,spec.json,data,sample,std,brute.cpp,generator/}
+    └── ...
 ```
 
 ### 层级目录名映射
@@ -36,7 +36,7 @@
 | 专家级 | `level-3-expert` |
 | 自定义 | 小写 ASCII slug（非 `[0-9A-Za-z_-]` 替换为 `-`；空则回退 `custom`） |
 
-文件名/目录名均做安全化：`\\ / : * ? " < > |` 与空白替换为 `-`。
+文件名/目录名建议按安全化规则书写：`\\ / : * ? " < > |` 与空白替换为 `-`。
 
 ## 3. 知识库卡片（kb）
 
@@ -54,53 +54,50 @@
 | `pitfalls` | 否 | 多行易错点 |
 
 frontmatter 支持：`key: value`、`key: [a, b]`、`key:` + `- item` 列表、
-`key: |` 多行块。工具用轻量解析器读取，非 YAML 全集，请按模板格式书写。
+`key: |` 多行块。技能按轻量解析规则读取，非 YAML 全集，请按模板格式书写。
 
 ### 3.2 增删改查（直接维护文件）
 
-| 命令 | 作用 |
+| 操作 | 做法 |
 |---|---|
-| `kb list` | 列出用户层全部卡片 |
-| `kb show <topic>` | 显示某卡片全文（含正文） |
-| `kb search <kw>` | 全文检索用户层 + 内置 knowledge-base |
-| `kb add --topic T --level L [--tags --summary --pitfalls --body --difficulty]` | 新增卡片 |
-| `kb add-file <md> [--level L] [--force]` | 导入一张已按模板写的卡片文件 |
-| `kb edit --topic T [--level --tags --summary --pitfalls --difficulty]` | 修改（level 变动会移动文件） |
-| `kb rm --topic T [--level L]` | 只删用户层卡片 |
-| `kb validate` | 校验全部用户层卡片 |
+| 新增 | 按 `templates/kb-card.md` 写卡片，保存为 `kb/<level>/<topic>.md` |
+| 查看/搜索 | 用编辑器打开，或让技能在会话中读取 `kb/` 与内置 `knowledge-base/` |
+| 修改 | 直接编辑卡片文件；改 `level` 时把文件移动到对应层级目录 |
+| 删除 | 删除 `kb/<level>/<topic>.md` |
+| 校验 | 对照 §3.1 字段与模板自查；frontmatter 不按模板书写时技能读不到该卡片 |
 
 ### 3.3 合并规则（技能使用侧）
 
 「锁定知识点」（SKILL.md 第 1 步 / `knowledge-base/workflow.md`）：
 1. 先读内置速查表（`knowledge-base/level-*.md`）；
-2. 再叠加用户层卡片（首次用 `kb list` / `kb search`，命中后用 `kb show` 取全文）；
+2. 再叠加用户层卡片（会话内列出/检索 `~/.dsh-oi-workbench/kb/`，命中后读取卡片全文）；
 3. **同名 `topic` 用户卡优先**；用户卡可新增知识点或自定义层级；
 4. 超纲检查：同时对照内置速查表，用户自定义层级内容仍按目标级别上限约束。
 
 ## 4. 用户参考题（ref）
 
 - 结构完全沿用内置 `reference/` 标准：`problem.md`、`spec.json`、`data/`（≥1 对 in/out）、
-  `sample/`、`std/std.cpp` 必选；`brute.cpp`、`generator/gen.py` 建议。
+  `sample/`、`std/std.cpp` 必选；题目目录内的 `brute.cpp` 与 `generator/` 下的生成器脚本建议。
 - 增删改查：直接维护 `~/.dsh-oi-workbench/reference/...`：
 
-| 命令 | 作用 |
+| 操作 | 做法 |
 |---|---|
-| `ref list` | 列出用户层参考题与完整度 |
-| `ref show <id> [--level L]` | 显示某题目录结构 |
-| `ref add <题目目录> [--level L] [--id ID] [--force]` | 校验后复制进用户层（level 自动推断：源路径含 entry→入门级、intermediate→提高级，否则需指定） |
-| `ref rm <id> [--level L]` | 删除用户层参考题 |
-| `ref validate <题目目录>` | 校验完整性 |
+| 新增 | 按上述结构准备题目目录，整体复制到 `reference/<level>/<id>/` |
+| 查看 | 直接打开题目目录 |
+| 删除 | 删除 `reference/<level>/<id>/` |
+| 校验 | `python tools/check_problem.py <题目目录>`（工具在技能目录内，对任意题目目录可用） |
 
 ## 5. 安全与边界
 
-- 工具只在新写/删除于**用户数据根目录之内**（路径越界拒绝）；
-- 不执行用户内容中的代码；密码/Token 不落库；
+- 用户层读写限定在 `~/.dsh-oi-workbench/` 之内，不触碰插件安装目录；
+- 不执行用户内容中的代码；密码/Token 不写入用户层；
 - 用户层数据属于个人环境，**不进插件包**（如需随包发布，另行评估）。
 
 ## 6. 验收
 
-- [ ] 无内置卡片也可 `kb add`，`kb list`/`kb search`/`kb show` 立即可见；
+- [ ] 用户层目录为空时技能正常运行；按模板新建卡片后技能可读到；
 - [ ] 同名 topic 用户卡覆盖内置（锁定知识点优先用用户卡）；
-- [ ] `kb rm` 只删用户层；`kb validate` 对非法卡片报错；
-- [ ] `ref add` 对不完整目录拒绝；完整目录复制后校验通过；
+- [ ] 删除用户层卡片不影响内置 `knowledge-base/`；
+- [ ] frontmatter 不按模板书写时，该卡片不参与合并；
+- [ ] 完整结构的 `reference/<level>/<id>/` 能通过 `tools/check_problem.py` 校验；
 - [ ] 全程无需重启。
