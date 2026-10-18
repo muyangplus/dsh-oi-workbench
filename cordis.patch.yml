@@ -1,13 +1,7 @@
-# Opt-in OI Workbench filesystem Skill provider + DSH 原生管理面板入口。
-# 1) Skill provider：把包内 skills/oi-workbench/ 暴露为可加载 skill。
-# 2) 插件本体：注册 host API 与 client 设置页。
+# Opt-in OI Workbench plugin row (DSH 0.2.1+).
+# The node half (exports ".") registers the host API, the oi-workbench skill
+# provider, and the oiwb_status tool; the `dsh.client` declaration in
+# package.json loads the browser half (exports "./client") into the Web GUI.
 - insert:
-    - id: oi-workbench-skill-filesystem
-      name: '@deepseek-ai/dsh-skill-filesystem'
-      config:
-        providerName: oi-workbench-plugin
-        includeDefaultRoots: false
-        bundledSkillDir: !!js process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('@muyangplus/dsh-oi-workbench/package.json')), 'skills')
     - id: dsh-oi-workbench
       name: '@muyangplus/dsh-oi-workbench'
-      config: {}

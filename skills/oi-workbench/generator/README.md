@@ -171,3 +171,10 @@ python generator/export_lemon.py --contest LKCP --contest-title "LKCP 非专业�
 
 - Hydro：网页「从 Hydro 导入」或 `python hydro-bridge/publish_problem.py`
 - HOJ：后台「题目管理 → 导入题目」或 `python hoj-bridge/publish_problem.py`
+
+## 与 DSH 原生面板的对应
+
+- Web GUI「OI 工作台 → 题目」的 检查 / 构建 / 本地评测按钮，分别调用 `tools/check_problem.py`、
+  `build_package.py`（或 `build_hoj_package.py`）、`local_judge.py`，参数与本文命令一致。
+- 「比赛」页的一键构建调用 `build_contest.py`；「总览」页显示 root、插件版本与题目数。
+- 面板的结构、接口与安全边界见 `specs/native-panel.md`。

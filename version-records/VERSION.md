@@ -4,35 +4,38 @@
 
 | 项 | 值 |
 |---|---|
-| 当前版本（dev 仓库） | 0.2.0 |
-| 当前分支 | main（跟踪 origin-dev/main） |
+| 当前版本（dev 仓库） | 0.3.0 |
+| 当前分支 | main（跟踪 origin/main） |
 | License | Apache-2.0 |
-| 最近一次发布 | 0.2.0（发布中：public dev 出 beta → PR 合 main 出正式版 + GitHub Release + tag v0.2.0） |
+| 兼容 DSH | >= 0.2.1-rc.2（`dsh.engines.dsh`） |
+| 最近一次发布 | 0.2.0 |
 
 ## 版本策略（两层）
 
-1. **dev 迭代期（当前）**：维持 `0.1` 主次版本号不变，每完成一个功能批次递增 **修正号**：
-   0.1.1 → 0.1.2 → 0.1.3 → 0.1.4（0.1.4 聚合批次 3–5）。
+1. **dev 迭代期（当前）**：每个功能批次递增 **修正号**（0.2.1 → 0.2.2 …）；
+   若一批同时包含平台适配与用户可见功能，可升 **次版本号**（当前 0.3.0）。
    迭代期默认**不发布**，改动只保留在 dev 仓库与 `origin main`；若用户显式指定某一版本号发布
-   （例如发布 0.1.2），以用户指令为准。
+   （例如发布 0.3.0），以用户指令为准。
 
-2. **发布期（下次发布时）**：把迭代期累积的所有改动聚合为下一个 **次要版本** `0.2.0`：
-   - public `dev` 分支 → CI 出 npm beta（`0.2.0-beta.*`）；
-   - PR public `dev` → `main` → CI 出正式版 `0.2.0` + GitHub Release + git tag `v0.2.0`。
+2. **发布期（下次发布时）**：把迭代期累积的改动聚合为下一个版本：
+   - public `dev` 分支 → CI 出 npm beta（`0.3.0-beta.*`）；
+   - PR public `dev` → `main` → CI 出正式版 `0.3.0` + GitHub Release + git tag `v0.3.0`。
 
 > 仅当发生破坏性变更（技能约定 / 评测规范 / 题目包结构不兼容）时，才需要另行调整主版本号策略。
+> DSH 平台 API 升级（例如 0.2.1 的客户端插件 API 换代、插件版本门禁）按**次版本号**处理。
 
 ## 版本速览
 
 | 版本 | 类型 | 摘要 | changelog |
 |---|---|---|---|
-| 0.1.0 | 基线 | dev 仓库现状：skill-first 工作台、内置知识库（入门/提高/专家）、打包器与本地评测、Hydro/HOJ 桥、Python 外部 UI、斜杠命令、原创参考题（entry/intermediate） | changelog/v0.1.0.md |
-| 0.1.1 | ✅ 已完成 | 批次 1：用户自定义知识库 / 参考题（UI/命令增删改查） | changelog/v0.1.1.md |
+| 0.1.0 | 基线 | dev 仓库现状：skill-first 工作台、内置知识库（入门/提高/专家）、打包器与本地评测、Hydro/HOJ 桥、Python 外部 UI、原创参考题（entry/intermediate） | changelog/v0.1.0.md |
+| 0.1.1 | ✅ 已完成 | 批次 1：用户自定义知识库 / 参考题（增删改查） | changelog/v0.1.1.md |
 | 0.1.2 | ✅ 已完成 | 批次 2：标准 IO / 文件 IO 双模式 + 一般 OJ 评测模式 | changelog/v0.1.2.md |
-| 0.1.3 | ✅ 已完成 | 工程批次：HOJ 导出修复（info/数据范围入提示）、盲审工具（发布前/生成题目后）、文档与评测规范清理、dsh-commands 改为可选依赖 | changelog/v0.1.3.md |
-| 0.1.4 | ✅ 已完成 | 功能批次 3–5 聚合：故事题面/story-card、一次性出比赛、连载、spj·交互、testlib.h；发布名改 @muyangplus/dsh-oi-workbench | changelog/v0.1.4.md |
-| 0.1.5 | ✅ 已完成 | 发布版 README 修正（dsh-commands 可选）+ 一键整场 generate_contest + spj/交互验证 validate_spj + story-card 幂等 | changelog/v0.1.5.md |
+| 0.1.3 | ✅ 已完成 | 工程批次：HOJ 导出修复、盲审工具、文档与评测规范清理、dsh-commands 改为可选依赖 | changelog/v0.1.3.md |
+| 0.1.4 | ✅ 已完成 | 功能批次 3–5 聚合：故事题面/story-card、一次性出比赛、连载、spj·交互、testlib.h | changelog/v0.1.4.md |
+| 0.1.5 | ✅ 已完成 | 发布版 README 修正 + 一键整场 generate_contest + spj/交互验证 validate_spj + story-card 幂等 | changelog/v0.1.5.md |
 | 0.1.6 | 已并入 0.2.0 | 迭代批次：多轮出题经验回灌（打包器 / Lemon 导出 / 本地评测 / 样例打包 / check_problem） | — |
-| 0.2.0 | ✅ 已完成（本次发布） | 聚合 0.1.5 之后全部迭代：多轮出题经验 + **题面硬约束与检查器** + DSH 原生管理面板 | changelog/v0.2.0.md |
+| 0.2.0 | ✅ 已发布 | 聚合 0.1.5 之后全部迭代：多轮出题经验 + 题面硬约束与检查器 + DSH 原生管理面板原型 | changelog/v0.2.0.md |
+| 0.3.0 | ✅ 已完成（待发布） | DSH 0.2.1 适配（版本门禁/新宿主 API/技能注册）+ 原生面板正式版（题目/OJ/比赛/工作台）+ SKILL.md 迭代 | changelog/v0.3.0.md |
 
 > 版本号变化必须伴随 changelog 条目，缺一不可；分批安排见 `ROADMAP.md`。
